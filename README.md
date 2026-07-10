@@ -2,9 +2,9 @@
 
 An Obsidian plugin that imports highlights, notes, and bookmarks from a physical Kindle device's `My Clippings.txt` into per-book Markdown notes. One-way, additive, and idempotent: Kindle is the source of truth for new content flowing in; Obsidian is the source of truth for everything once it lands there.
 
-This is a personal replacement for the Readwise → Obsidian pipeline for the "physical Kindle over USB" use case. It is not in the community plugin directory.
+A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. It is not in the community plugin directory.
 
-**Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched Readwise's cloud-sourced notes for the same book.
+**Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched the final highlight state shown on the device.
 
 ## What it does
 
@@ -34,14 +34,66 @@ This is a personal replacement for the Readwise → Obsidian pipeline for the "p
 
 Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon book icon, or the "Sync now" button in settings.
 
-## Installation (manual)
+## Daily use (after setup)
 
-1. `npm install && npm run build` — produces `main.js`.
-2. Copy `main.js`, `manifest.json`, and `styles.css` into your vault at `.obsidian/plugins/kindle-clippings-sync/`.
-3. Reload Obsidian and enable **Kindle Clippings Sync** in Settings → Community plugins.
-4. In the plugin settings, set the path to `My Clippings.txt`. Older Kindles mount as a drive (`/Volumes/Kindle/documents/My Clippings.txt` on macOS); Kindles on firmware 5.16.2+ don't mount at all — point the plugin at a local copy and use the pre-sync command to refresh it automatically (see "MTP Kindles on macOS" below).
+1. Plug the Kindle into your Mac with a USB cable. If the Kindle shows a "connect to computer" prompt, tap to accept it.
+2. **Right away**, click the book icon in Obsidian's left sidebar (Kindles quietly disconnect themselves a minute or so after being plugged in — if you waited too long, unplug, replug, and click again).
+3. A notification tells you what happened: "added N clippings across M books", or "nothing new". That's it — new highlights are appended to each book's note; everything you've edited or deleted in those notes is left alone.
 
-Desktop only (`isDesktopOnly: true`) — it reads a file outside the vault and uses Electron's file dialog.
+## Setup
+
+Desktop only — the plugin reads a file outside your vault. The plugin itself works on macOS, Windows, and Linux; the automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
+
+### Step 1 — install the plugin into Obsidian
+
+Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/nickFalcone/kindle-clippings-sync/releases), and put them in a folder called `kindle-clippings-sync` inside your vault's `.obsidian/plugins/` folder. (The `.obsidian` folder is hidden; in Finder, press `Cmd+Shift+.` inside your vault folder to show it.)
+
+Then restart Obsidian and enable **Kindle Clippings Sync** under Settings → Community plugins → Installed plugins.
+
+<details>
+<summary>Or build from source (requires Node ≥ 18)</summary>
+
+```bash
+git clone https://github.com/nickFalcone/kindle-clippings-sync.git
+cd kindle-clippings-sync
+npm install && npm run build
+mkdir -p "/path/to/your/vault/.obsidian/plugins/kindle-clippings-sync"
+cp main.js manifest.json styles.css "/path/to/your/vault/.obsidian/plugins/kindle-clippings-sync/"
+```
+
+</details>
+
+### Step 2 (macOS, modern Kindle) — one-time USB helper setup
+
+Kindles on recent firmware don't show up in Finder at all (see "MTP Kindles on macOS" below for why). This one-time setup installs a small helper that fetches the highlights file over USB. Open the **Terminal** app and paste these blocks one at a time:
+
+```bash
+# Install Homebrew, the standard Mac package manager (skip if you already have it)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+```bash
+# Install the USB library, then download and build the helper
+brew install libmtp
+git clone https://github.com/nickFalcone/kindle-clippings-sync.git ~/kindle-clippings-sync
+cc -o /opt/homebrew/bin/mtp-pull ~/kindle-clippings-sync/scripts/mtp-pull.c \
+  -I/opt/homebrew/include -I/opt/homebrew/include/libusb-1.0 -L/opt/homebrew/lib -lmtp -lusb-1.0
+ln -sf ~/kindle-clippings-sync/scripts/kindle-sync.sh /opt/homebrew/bin/kindle-sync
+```
+
+(If you already cloned the repo in Step 1, reuse that folder instead of cloning again.)
+
+### Step 3 — point the plugin at your highlights
+
+In Obsidian → Settings → Kindle Clippings Sync:
+
+| Setting | What to enter |
+| --- | --- |
+| Path to `My Clippings.txt` | Modern Kindle on a Mac: `/Users/YOURNAME/Kindle/My Clippings.txt` (the helper puts it there). Older Kindle that appears in Finder: browse to `documents/My Clippings.txt` on the device. |
+| Pre-sync command | Modern Kindle on a Mac: `/opt/homebrew/bin/kindle-sync --pull-only`. Otherwise: leave empty. |
+| Book notes folder | Wherever you want the book notes, e.g. `Reference/Books`. |
+
+Now plug in your Kindle and click the book icon — see "Daily use" above.
 
 ## Settings
 
