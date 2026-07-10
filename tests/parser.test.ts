@@ -192,9 +192,9 @@ describe('parseClippings — dedupe', () => {
 		expect(clippings[0]!.addedAt).toBe('2016-03-27T09:00:00');
 	});
 
-	it('keeps an edited on-device note as a separate entry (documented v1 behavior)', () => {
-		// Editing a note on the Kindle appends a new entry with different
-		// text at the same location — different hash, so both survive.
+	it('collapses an edited on-device note to the latest version', () => {
+		// Editing a note on the Kindle appends a new entry at the same
+		// location — collapseDrafts keeps only the final state.
 		const original = entry(
 			'Fahrenheit 451 (Ray Bradbury)',
 			'- Your Note on page 45 | location 812 | Added on Saturday, 26 March 2016 16:02:11',
@@ -207,7 +207,100 @@ describe('parseClippings — dedupe', () => {
 			'',
 			'remember this for the essay',
 		);
-		expect(parseClippings(original + edited)).toHaveLength(2);
+		const clippings = parseClippings(original + edited);
+		expect(clippings).toHaveLength(1);
+		expect(clippings[0]!.text).toBe('remember this for the essay');
+	});
+
+	it('collapses highlight-resize drafts to the latest draft (real-device pattern)', () => {
+		// Observed on a Paperwhite Signature Edition: resizing a highlight's
+		// boundaries appends a new entry per adjustment, with overlapping
+		// location ranges. Reconstruction of the location-238 cluster from
+		// Ben Hogan's Five Lessons.
+		const book = "Ben Hogan's Five Lessons (Hogan, Ben)";
+		const drafts =
+			entry(
+				book,
+				'- Your Highlight on page 3 | location 238-238 | Added on Tuesday, 1 July 2025 21:00:01',
+				'',
+				'With',
+			) +
+			entry(
+				book,
+				'- Your Highlight on page 3 | location 238-239 | Added on Tuesday, 1 July 2025 21:00:05',
+				'',
+				'With a defective grip, a golfer cannot hold the club securely at the top of the backswing—the club will fly out of control every time.',
+			) +
+			entry(
+				book,
+				'- Your Highlight on page 3 | location 238-240 | Added on Tuesday, 1 July 2025 21:00:12',
+				'',
+				'With a defective grip, a golfer cannot hold the club securely at the top of the backswing—the club will fly out of control every time. And if the club is not controlled by a proper grip, the power a golfer generates with his body never reaches the club through his hands on the downswing.',
+			) +
+			// A separate highlight further along must NOT be collapsed.
+			entry(
+				book,
+				'- Your Highlight on page 3 | location 246-246 | Added on Tuesday, 1 July 2025 21:01:00',
+				'',
+				'In a good grip both hands act as one unit.',
+			);
+		const clippings = parseClippings(drafts);
+		expect(clippings).toHaveLength(2);
+		expect(clippings[0]!.location).toBe('238-240');
+		expect(clippings[0]!.text).toContain('never reaches the club');
+		expect(clippings[1]!.location).toBe('246-246');
+	});
+
+	it('keeps the latest draft even when a later edit shrank the highlight', () => {
+		const book = 'Some Book (Someone)';
+		const long = entry(
+			book,
+			'- Your Highlight at location 100-110 | Added on Tuesday, 1 July 2025 21:00:00',
+			'',
+			'A long passage that was later trimmed down by the reader.',
+		);
+		const short = entry(
+			book,
+			'- Your Highlight at location 100-104 | Added on Tuesday, 1 July 2025 21:00:30',
+			'',
+			'A long passage',
+		);
+		const clippings = parseClippings(long + short);
+		expect(clippings).toHaveLength(1);
+		expect(clippings[0]!.text).toBe('A long passage');
+	});
+
+	it('does not collapse a highlight and a note at the same location', () => {
+		const book = 'Some Book (Someone)';
+		const highlight = entry(
+			book,
+			'- Your Highlight at location 500-502 | Added on Tuesday, 1 July 2025 21:00:00',
+			'',
+			'the highlighted passage',
+		);
+		const note = entry(
+			book,
+			'- Your Note at location 501 | Added on Tuesday, 1 July 2025 21:00:10',
+			'',
+			'my thought about it',
+		);
+		expect(parseClippings(highlight + note)).toHaveLength(2);
+	});
+
+	it('does not collapse overlapping locations across different books', () => {
+		const a = entry(
+			'Book A (X)',
+			'- Your Highlight at location 100-105 | Added on Tuesday, 1 July 2025 21:00:00',
+			'',
+			'text in book A',
+		);
+		const b = entry(
+			'Book B (Y)',
+			'- Your Highlight at location 100-105 | Added on Tuesday, 1 July 2025 21:00:10',
+			'',
+			'text in book B',
+		);
+		expect(parseClippings(a + b)).toHaveLength(2);
 	});
 
 	it('produces stable hashes', () => {

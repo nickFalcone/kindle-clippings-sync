@@ -13,14 +13,15 @@ const CLIPPING_LIMIT_RE =
 /**
  * Dedupe hash over (bookKey, location, type, text).
  *
- * WARNING — unverified edge case (see README): editing a Note on the Kindle
- * device is believed to append a NEW entry at the same location with a new
- * timestamp rather than replacing the old one. Because text differs, the
- * edited note gets a different hash and will surface as a second bullet in
- * the output note. If that proves annoying in practice, the fix is to key
- * on (bookKey, location, type) and treat latest-by-timestamp as
- * authoritative — deliberately not done in v1 because replacing a prior
- * line in the note risks clobbering adjacent manual edits.
+ * Verified on a real device (2026-07-10): editing a highlight's boundaries
+ * (and, by the same mechanism, editing a note) APPENDS a new entry with a
+ * new timestamp and slightly different location range — the old drafts stay
+ * in the file forever. Hash-level dedupe alone therefore keeps every draft,
+ * because each has different text. collapseDrafts() below handles this by
+ * collapsing same-book/same-type entries with overlapping location ranges
+ * down to the latest draft. Note the remaining limitation: a draft that was
+ * already synced before the edit stays in the note (output is append-only;
+ * prior lines are never rewritten).
  */
 export function hashClipping(
 	bookKey: string,
@@ -143,9 +144,9 @@ function flipLastFirst(name: string): string {
 
 /**
  * Parse the full contents of My Clippings.txt. Strips a leading UTF-8 BOM,
- * normalizes line endings, and dedupes entries by hash (keeping the most
- * recent by timestamp when the same content appears more than once — the
- * file is append-only on-device, so re-edits produce duplicate entries).
+ * normalizes line endings, dedupes exact duplicates by hash, then collapses
+ * edit "drafts" (see collapseDrafts) so each highlight/note appears once,
+ * in its final on-device state.
  */
 export function parseClippings(raw: string): Clipping[] {
 	const text = raw.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n');
@@ -156,12 +157,90 @@ export function parseClippings(raw: string): Clipping[] {
 		const prev = byHash.get(clipping.hash);
 		if (!prev || isNewer(clipping, prev)) byHash.set(clipping.hash, clipping);
 	}
-	return [...byHash.values()];
+	return collapseDrafts([...byHash.values()]);
 }
 
 function isNewer(a: Clipping, b: Clipping): boolean {
 	if (a.addedAt && b.addedAt) return a.addedAt > b.addedAt;
 	return true; // unparseable dates: later file position wins
+}
+
+/** "1406-1407" -> [1406, 1407]; "512" -> [512, 512]; unparseable -> null. */
+function locationRange(location: string | null): [number, number] | null {
+	if (!location) return null;
+	const m = location.match(/^(\d+)(?:-(\d+))?$/);
+	if (!m) return null;
+	const start = Number(m[1]);
+	const end = m[2] ? Number(m[2]) : start;
+	return end >= start ? [start, end] : [start, start];
+}
+
+/**
+ * Collapse edit drafts: adjusting a highlight's boundaries (or editing a
+ * note) on-device appends a NEW entry with an overlapping location range —
+ * the clippings file is a journal of every intermediate state, while the
+ * device (and Amazon's cloud notebook) show only the final one. Cluster
+ * same-book/same-type entries whose location ranges overlap and keep the
+ * latest draft per cluster (by timestamp, falling back to file order).
+ * Entries without a numeric location pass through untouched.
+ */
+export function collapseDrafts(clippings: Clipping[]): Clipping[] {
+	type Entry = { clipping: Clipping; range: [number, number]; index: number };
+	const groups = new Map<string, Entry[]>();
+	const passthrough: { clipping: Clipping; index: number }[] = [];
+
+	clippings.forEach((clipping, index) => {
+		const range = locationRange(clipping.location);
+		if (!range) {
+			passthrough.push({ clipping, index });
+			return;
+		}
+		const key = `${clipping.bookKey} ${clipping.type}`;
+		let group = groups.get(key);
+		if (!group) {
+			group = [];
+			groups.set(key, group);
+		}
+		group.push({ clipping, range, index });
+	});
+
+	const winners: { clipping: Clipping; index: number }[] = [...passthrough];
+	for (const group of groups.values()) {
+		group.sort((a, b) => a.range[0] - b.range[0] || a.range[1] - b.range[1]);
+		let cluster: Entry[] = [];
+		let clusterEnd = -Infinity;
+		const flush = () => {
+			if (cluster.length === 0) return;
+			const latest = cluster.reduce((best, e) =>
+				isLaterDraft(e, best) ? e : best,
+			);
+			winners.push({ clipping: latest.clipping, index: latest.index });
+		};
+		for (const entry of group) {
+			if (entry.range[0] > clusterEnd) {
+				flush();
+				cluster = [];
+				clusterEnd = -Infinity;
+			}
+			cluster.push(entry);
+			clusterEnd = Math.max(clusterEnd, entry.range[1]);
+		}
+		flush();
+	}
+
+	// Preserve original file order in the output.
+	winners.sort((a, b) => a.index - b.index);
+	return winners.map((w) => w.clipping);
+}
+
+function isLaterDraft(
+	a: { clipping: Clipping; index: number },
+	b: { clipping: Clipping; index: number },
+): boolean {
+	const at = a.clipping.addedAt;
+	const bt = b.clipping.addedAt;
+	if (at && bt && at !== bt) return at > bt;
+	return a.index > b.index;
 }
 
 function parseEntry(chunk: string): Clipping | null {
