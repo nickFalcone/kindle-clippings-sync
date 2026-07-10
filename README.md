@@ -76,7 +76,7 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 - Multi-line (paragraph) highlight bodies are preserved and rendered as an indented single bullet.
 - A leading UTF-8 BOM and CRLF line endings are both handled (both vary across Kindle firmware).
 - **Clipping limit:** for DRM-limited books Kindle writes `<You have reached the clipping limit for this item>` instead of the text. These are surfaced as a visible `**[Clipping limit reached — …]**` stub bullet (toggleable), never silently dropped.
-- **Duplicates:** the file is append-only on-device, so edits create duplicate entries. Deduped by hash of `(book key, location, type, text)`, keeping the most recent timestamp.
+- **Duplicates & edit drafts:** the file is append-only on-device — exact duplicates are deduped by hash of `(book key, location, type, text)`. Beyond that (confirmed on a real Paperwhite): *resizing a highlight's boundaries or editing a note appends a new entry per adjustment*, with overlapping location ranges — the file journals every intermediate draft, while the device shows only the final state. The parser collapses same-book/same-type entries with overlapping location ranges down to the latest draft (by timestamp), so each highlight/note imports once, in its final on-device form.
 
 ## MTP Kindles on macOS (firmware 5.16.2+)
 
@@ -91,7 +91,7 @@ For one-click sync from inside Obsidian, set the plugin's **Pre-sync command** s
 
 ## Known limitations / untested edge cases
 
-- **⚠️ Editing a Note on the Kindle device (UNVERIFIED against real hardware):** the working assumption is that Amazon appends a *new* entry at the same location with a new timestamp rather than replacing the old one. Since text differs, the edited note hashes differently and will appear as a **second bullet** alongside the original. This is a reasoned prediction from how `My Clippings.txt` is known to behave, not confirmed behavior — needs a real-device test (edit a note on-device, re-sync, count bullets). If it proves annoying, the fix is keying dedupe on `(book, location, type)` with latest-timestamp-wins — deliberately not done in v1 because replacing a prior line risks clobbering adjacent manual edits. See the comment on `hashClipping` in `src/parser.ts`.
+- **Editing a highlight/note on-device *after* it has already been synced:** the append-on-edit behavior predicted in the original spec was **confirmed on real hardware** (highlight-resize drafts observed in a real clippings file) and is handled by the parser's draft collapse — but only for drafts that exist *before* a sync. If you sync, then edit that highlight on the Kindle, the next sync appends the new version as a second bullet: the old bullet is never rewritten or removed, because output is strictly append-only and replacing prior lines risks clobbering adjacent manual edits. Delete the stale bullet by hand if it bothers you (it stays deleted). See the comment on `hashClipping` in `src/parser.ts`.
 - No deep links back to the Kindle: `My Clippings.txt` contains no ASIN, which such links require. (Amazon's cloud notebook would expose ASIN — that's the deferred phase-2 wireless path, along with its credential-storage and scraping-fragility tradeoffs.)
 - Wireless/cloud sync is explicitly out of scope for v1; the parser is deliberately decoupled from file acquisition so an `AmazonCloudSource` could feed it later without a rewrite.
 
