@@ -6,7 +6,7 @@ This is a personal replacement for the Readwise → Obsidian pipeline for the "p
 
 ## What it does
 
-- Reads `My Clippings.txt` from a USB-mounted Kindle (path set in settings, with a native Browse dialog).
+- Reads `My Clippings.txt` from a USB-connected Kindle — or any local copy of it (path set in settings, with a native Browse dialog). On modern MTP-only Kindles the file is pulled to a local path first; see "MTP Kindles on macOS" below.
 - Parses all highlights, notes, and bookmarks; groups them by book.
 - Writes one Markdown note per book (default folder: `Reference/Books`) with YAML frontmatter:
 
@@ -37,7 +37,7 @@ Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon bo
 1. `npm install && npm run build` — produces `main.js`.
 2. Copy `main.js`, `manifest.json`, and `styles.css` into your vault at `.obsidian/plugins/kindle-clippings-sync/`.
 3. Reload Obsidian and enable **Kindle Clippings Sync** in Settings → Community plugins.
-4. In the plugin settings, set the path to `My Clippings.txt` (on macOS typically `/Volumes/Kindle/documents/My Clippings.txt` while the Kindle is connected via USB).
+4. In the plugin settings, set the path to `My Clippings.txt`. Older Kindles mount as a drive (`/Volumes/Kindle/documents/My Clippings.txt` on macOS); Kindles on firmware 5.16.2+ don't mount at all — point the plugin at a local copy and use the pre-sync command to refresh it automatically (see "MTP Kindles on macOS" below).
 
 Desktop only (`isDesktopOnly: true`) — it reads a file outside the vault and uses Electron's file dialog.
 
@@ -50,6 +50,7 @@ Desktop only (`isDesktopOnly: true`) — it reads a file outside the vault and u
 | Include notes | on | Your own Kindle annotations |
 | Include bookmarks | off | Bookmarks have no text |
 | Include clipping-limit stubs | on | See "Clipping limit" below |
+| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync --pull-only` to pull the file off an MTP Kindle); sync aborts if it fails |
 
 The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
 
