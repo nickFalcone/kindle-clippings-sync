@@ -77,6 +77,17 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 - **Clipping limit:** for DRM-limited books Kindle writes `<You have reached the clipping limit for this item>` instead of the text. These are surfaced as a visible `**[Clipping limit reached — …]**` stub bullet (toggleable), never silently dropped.
 - **Duplicates:** the file is append-only on-device, so edits create duplicate entries. Deduped by hash of `(book key, location, type, text)`, keeping the most recent timestamp.
 
+## MTP Kindles on macOS (firmware 5.16.2+)
+
+Newer Kindle firmware replaced USB Mass Storage with MTP, which macOS cannot mount — the device never appears in Finder. Two helpers in `scripts/` bridge this:
+
+- `mtp-pull.c` — small C tool (libusb + libmtp) that looks up and fetches one file by name in a **single MTP session**, with a USB device reset fallback. The stock libmtp CLIs need two sessions (list, then fetch), which Kindles intermittently refuse — and `mtp-getfile` exits 0 even on failure. Build: see the comment in the file.
+- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), then triggers the plugin's sync command via the Local REST API plugin if reachable. `--pull-only` skips the trigger (used as the plugin's pre-sync command).
+
+For one-click sync from inside Obsidian, set the plugin's **Pre-sync command** setting to `kindle-sync --pull-only` (full path).
+
+**Hardware quirk (observed on a Paperwhite Signature Edition):** the Kindle drops off the USB bus entirely a short while after being plugged in — after that, nothing can reach it until you replug. Run the sync soon after connecting the device. If you get "no MTP device found", replug and retry.
+
 ## Known limitations / untested edge cases
 
 - **⚠️ Editing a Note on the Kindle device (UNVERIFIED against real hardware):** the working assumption is that Amazon appends a *new* entry at the same location with a new timestamp rather than replacing the old one. Since text differs, the edited note hashes differently and will appear as a **second bullet** alongside the original. This is a reasoned prediction from how `My Clippings.txt` is known to behave, not confirmed behavior — needs a real-device test (edit a note on-device, re-sync, count bullets). If it proves annoying, the fix is keying dedupe on `(book, location, type)` with latest-timestamp-wins — deliberately not done in v1 because replacing a prior line risks clobbering adjacent manual edits. See the comment on `hashClipping` in `src/parser.ts`.

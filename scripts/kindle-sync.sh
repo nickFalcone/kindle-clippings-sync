@@ -29,7 +29,11 @@ SYNC_COMMAND_ID="kindle-clippings-sync:sync-kindle-highlights"
 
 die() { echo "kindle-sync: $*" >&2; exit 1; }
 
-command -v mtp-files >/dev/null || die "libmtp not installed (brew install libmtp)"
+# mtp-pull does the name lookup and fetch in ONE MTP session — Kindles
+# intermittently refuse the second session that the stock two-step
+# (mtp-files + mtp-getfile) needs, and mtp-getfile exits 0 even on failure.
+# Source: scripts/mtp-pull.c (cc -o mtp-pull mtp-pull.c -I/opt/homebrew/include -L/opt/homebrew/lib -lmtp)
+command -v mtp-pull >/dev/null || die "mtp-pull not installed — build it from scripts/mtp-pull.c"
 
 if pgrep -qi openmtp; then
 	echo "Quitting OpenMTP (it holds the MTP connection)..."
@@ -37,35 +41,18 @@ if pgrep -qi openmtp; then
 	sleep 2
 fi
 
-lookup_file_id() {
-	mtp-files 2>/dev/null | awk '
-		/^File ID:/ { id = $3 }
-		/Filename: My Clippings.txt$/ { print id; exit }
-	'
-}
-
-echo "Looking for My Clippings.txt on the Kindle..."
-FILE_ID="$(lookup_file_id)"
-if [ -z "$FILE_ID" ]; then
+echo "Fetching My Clippings.txt from the Kindle..."
+mkdir -p "$(dirname "$DEST")"
+TMP="$(mktemp -d)/clippings.txt" # path must not exist yet
+trap 'rm -rf "$(dirname "$TMP")"' EXIT
+if ! mtp-pull "My Clippings.txt" "$TMP"; then
 	# Kindles drop the MTP session when they sleep; one retry after a pause
 	# covers the common wake-up case.
 	sleep 3
-	FILE_ID="$(lookup_file_id)"
-fi
-[ -n "$FILE_ID" ] || die "device or file not found — is the Kindle plugged in, awake, and did you tap its connect prompt?"
-
-mkdir -p "$(dirname "$DEST")"
-TMP="$(mktemp)"
-trap 'rm -f "$TMP"' EXIT
-# File IDs can shift between MTP sessions; if the fetch fails, re-look-up once.
-if ! mtp-getfile "$FILE_ID" "$TMP" 2>/dev/null; then
-	FILE_ID="$(lookup_file_id)"
-	[ -n "$FILE_ID" ] || die "lost the device between lookup and fetch — replug and retry"
-	mtp-getfile "$FILE_ID" "$TMP" 2>/dev/null || die "MTP fetch failed twice — replug and retry"
+	mtp-pull "My Clippings.txt" "$TMP" || die "MTP fetch failed — unplug/replug the Kindle, tap its connect prompt, and retry"
 fi
 [ -s "$TMP" ] || die "fetched an empty file — replug and retry"
 mv "$TMP" "$DEST"
-trap - EXIT
 echo "Copied $(wc -c < "$DEST" | tr -d ' ') bytes to $DEST"
 
 [ "$PULL_ONLY" = "1" ] && exit 0
