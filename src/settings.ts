@@ -9,6 +9,11 @@ export interface KindleClippingsSettings {
 	includeNotes: boolean;
 	includeBookmarks: boolean;
 	includeTruncated: boolean;
+	/**
+	 * Optional shell command run before each sync, e.g. a script that pulls
+	 * My Clippings.txt off an MTP-only Kindle. Sync aborts if it fails.
+	 */
+	preSyncCommand: string;
 }
 
 export const DEFAULT_SETTINGS: KindleClippingsSettings = {
@@ -17,6 +22,7 @@ export const DEFAULT_SETTINGS: KindleClippingsSettings = {
 	includeNotes: true,
 	includeBookmarks: false,
 	includeTruncated: true,
+	preSyncCommand: '',
 };
 
 /**
@@ -140,6 +146,21 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.includeTruncated)
 					.onChange(async (value) => {
 						this.plugin.settings.includeTruncated = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Pre-sync command')
+			.setDesc(
+				'Optional shell command run before each sync — e.g. a script that copies My Clippings.txt off an MTP-only Kindle. Leave empty to skip. Sync aborts if the command fails.',
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('/opt/homebrew/bin/kindle-sync --pull-only')
+					.setValue(this.plugin.settings.preSyncCommand)
+					.onChange(async (value) => {
+						this.plugin.settings.preSyncCommand = value;
 						await this.plugin.saveSettings();
 					}),
 			);

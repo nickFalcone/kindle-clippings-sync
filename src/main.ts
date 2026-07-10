@@ -1,5 +1,9 @@
 import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
 import { readFile } from 'fs/promises';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 import {
 	DEFAULT_SETTINGS,
 	KindleClippingsSettings,
@@ -89,6 +93,24 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				'Set the path to My Clippings.txt in the Kindle Clippings Sync settings first.',
 			);
 			return;
+		}
+
+		const preSync = this.settings.preSyncCommand.trim();
+		if (preSync) {
+			new Notice('Kindle sync: running pre-sync command…');
+			try {
+				await execAsync(preSync, { timeout: 120_000 });
+			} catch (error) {
+				// A failed pull usually means the Kindle isn't connected; the
+				// on-disk copy is stale, so syncing would only mask that.
+				const message =
+					error instanceof Error && 'stderr' in error
+						? String((error as { stderr: unknown }).stderr).trim() ||
+							error.message
+						: String(error);
+				new Notice(`Pre-sync command failed — sync aborted.\n${message}`);
+				return;
+			}
 		}
 
 		let raw: string;

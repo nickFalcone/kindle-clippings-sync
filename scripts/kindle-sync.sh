@@ -13,6 +13,16 @@
 
 set -euo pipefail
 
+# Obsidian spawns commands with a minimal GUI PATH; make sure Homebrew's
+# tools (mtp-files, mtp-getfile) are reachable regardless of caller.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+# --pull-only: fetch the file but don't trigger the Obsidian command. Used
+# when the plugin itself invokes this script as its pre-sync command —
+# without it the script would circularly re-trigger the sync via REST.
+PULL_ONLY=0
+[ "${1:-}" = "--pull-only" ] && PULL_ONLY=1
+
 DEST="${KINDLE_CLIPPINGS_DEST:-$HOME/Kindle/My Clippings.txt}"
 VAULT_PLUGINS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins"
 SYNC_COMMAND_ID="kindle-clippings-sync:sync-kindle-highlights"
@@ -57,6 +67,8 @@ fi
 mv "$TMP" "$DEST"
 trap - EXIT
 echo "Copied $(wc -c < "$DEST" | tr -d ' ') bytes to $DEST"
+
+[ "$PULL_ONLY" = "1" ] && exit 0
 
 # Trigger the sync inside Obsidian via the Local REST API plugin, if present.
 # The API key is read at runtime from that plugin's own config; it never
