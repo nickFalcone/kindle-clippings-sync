@@ -4,6 +4,8 @@ An Obsidian plugin that imports highlights, notes, and bookmarks from a physical
 
 This is a personal replacement for the Readwise → Obsidian pipeline for the "physical Kindle over USB" use case. It is not in the community plugin directory.
 
+**Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched Readwise's cloud-sourced notes for the same book.
+
 ## What it does
 
 - Reads `My Clippings.txt` from a USB-connected Kindle — or any local copy of it (path set in settings, with a native Browse dialog). On modern MTP-only Kindles the file is pulled to a local path first; see "MTP Kindles on macOS" below.
