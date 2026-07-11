@@ -24,8 +24,24 @@ PULL_ONLY=0
 [ "${1:-}" = "--pull-only" ] && PULL_ONLY=1
 
 DEST="${KINDLE_CLIPPINGS_DEST:-$HOME/Kindle/My Clippings.txt}"
-VAULT_PLUGINS="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins"
 SYNC_COMMAND_ID="kindle-clippings-sync:sync-kindle-highlights"
+
+# Locate the vault whose Local REST API config holds the API key. Set
+# OBSIDIAN_VAULT to your vault's root folder to pick one explicitly;
+# otherwise the first iCloud-synced vault with that plugin installed wins.
+find_rest_data() {
+	if [ -n "${OBSIDIAN_VAULT:-}" ]; then
+		echo "$OBSIDIAN_VAULT/.obsidian/plugins/obsidian-local-rest-api/data.json"
+		return
+	fi
+	local f
+	for f in "$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"/*/.obsidian/plugins/obsidian-local-rest-api/data.json; do
+		if [ -f "$f" ]; then
+			echo "$f"
+			return
+		fi
+	done
+}
 
 die() { echo "kindle-sync: $*" >&2; exit 1; }
 
@@ -59,16 +75,10 @@ echo "Copied $(wc -c < "$DEST" | tr -d ' ') bytes to $DEST"
 
 # Trigger the sync inside Obsidian via the Local REST API plugin, if present.
 # The API key is read at runtime from that plugin's own config; it never
-# leaves this machine.
-REST_DATA="$VAULT_PLUGINS/obsidian-local-rest-api/data.json"
-if [ -f "$REST_DATA" ]; then
-	API_KEY="$(python3 -c "
-import json, sys
-try:
-    print(json.load(open('$REST_DATA')).get('apiKey', ''))
-except Exception:
-    pass
-" 2>/dev/null || true)"
+# leaves this machine (both endpoints below are loopback-only).
+REST_DATA="$(find_rest_data)"
+if [ -n "$REST_DATA" ] && [ -f "$REST_DATA" ]; then
+	API_KEY="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("apiKey", ""))' "$REST_DATA" 2>/dev/null || true)"
 	if [ -n "$API_KEY" ]; then
 		for BASE in "https://127.0.0.1:27124" "http://127.0.0.1:27123"; do
 			if curl -ks -o /dev/null -X POST \

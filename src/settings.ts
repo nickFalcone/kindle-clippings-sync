@@ -14,6 +14,12 @@ export interface KindleClippingsSettings {
 	 * My Clippings.txt off an MTP-only Kindle. Sync aborts if it fails.
 	 */
 	preSyncCommand: string;
+	/**
+	 * The exact pre-sync command string the user has confirmed via the
+	 * consent modal. A command only runs when it matches this; any change
+	 * to the setting re-prompts before the next sync.
+	 */
+	approvedPreSyncCommand: string;
 }
 
 export const DEFAULT_SETTINGS: KindleClippingsSettings = {
@@ -23,6 +29,7 @@ export const DEFAULT_SETTINGS: KindleClippingsSettings = {
 	includeBookmarks: false,
 	includeTruncated: true,
 	preSyncCommand: '',
+	approvedPreSyncCommand: '',
 };
 
 /**
@@ -153,7 +160,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Pre-sync command')
 			.setDesc(
-				'Optional shell command run before each sync — e.g. a script that copies My Clippings.txt off an MTP-only Kindle. Leave empty to skip. Sync aborts if the command fails.',
+				'Optional shell command run before each sync — e.g. a script that copies My Clippings.txt off an MTP-only Kindle. Leave empty to skip. Sync aborts if the command fails. The command runs with your user privileges; the first sync after it changes asks for confirmation.',
 			)
 			.addText((text) =>
 				text

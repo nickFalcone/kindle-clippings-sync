@@ -1,6 +1,6 @@
 # Kindle Clippings Sync
 
-An Obsidian plugin that imports highlights, notes, and bookmarks from a physical Kindle device's `My Clippings.txt` into per-book Markdown notes. One-way, additive, and idempotent: Kindle is the source of truth for new content flowing in; Obsidian is the source of truth for everything once it lands there.
+An [Obsidian](https://obsidian.md/) plugin that imports highlights, notes, and bookmarks from a physical Kindle device's `My Clippings.txt` into per-book Markdown notes. One-way, additive, and idempotent: Kindle is the source of truth for new content flowing in; Obsidian is the source of truth for everything once it lands there.
 
 A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. It is not in the community plugin directory.
 
@@ -104,9 +104,17 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 | Include notes | on | Your own Kindle annotations |
 | Include bookmarks | off | Bookmarks have no text |
 | Include clipping-limit stubs | on | See "Clipping limit" below |
-| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync --pull-only` to pull the file off an MTP Kindle); sync aborts if it fails |
+| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync --pull-only` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
 
 The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
+
+### Security: why a shell-command setting exists, and how it's gated
+
+MTP-only Kindles can't be read from inside Obsidian — fetching `My Clippings.txt` requires a helper that runs outside the app (see "MTP Kindles on macOS" below). The pre-sync command is the hook for that helper. Since it is by nature an arbitrary shell command, it is scoped and gated:
+
+- It only runs when **you** trigger a sync — never in the background — and the sync aborts if it fails.
+- Before a command string runs for the first time, the plugin displays it and asks for confirmation. Approval applies to that **exact string**; if the setting changes in any way, you're asked again before the next sync.
+- It runs with your user account's privileges, like Obsidian itself. The setting (and its approval record) live in the plugin's `data.json`, so anything that can write inside your vault's `.obsidian` folder could alter them — the same trust boundary as installing or modifying a plugin. Don't paste commands you don't understand.
 
 ## Sync semantics
 
@@ -137,7 +145,7 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 Newer Kindle firmware replaced USB Mass Storage with MTP, which macOS cannot mount — the device never appears in Finder. Two helpers in `scripts/` bridge this:
 
 - `mtp-pull.c` — small C tool (libusb + libmtp) that looks up and fetches one file by name in a **single MTP session**, with a USB device reset fallback. The stock libmtp CLIs need two sessions (list, then fetch), which Kindles intermittently refuse — and `mtp-getfile` exits 0 even on failure. Build: see the comment in the file.
-- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), then triggers the plugin's sync command via the Local REST API plugin if reachable. `--pull-only` skips the trigger (used as the plugin's pre-sync command).
+- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), then triggers the plugin's sync command via the Local REST API plugin if reachable. `--pull-only` skips the trigger (used as the plugin's pre-sync command). Env overrides: `KINDLE_CLIPPINGS_DEST` for where the file lands (default `~/Kindle/My Clippings.txt`); `OBSIDIAN_VAULT` for which vault's Local REST API config to use (default: the first iCloud-synced vault that has the plugin).
 
 For one-click sync from inside Obsidian, set the plugin's **Pre-sync command** setting to `kindle-sync --pull-only` (full path).
 

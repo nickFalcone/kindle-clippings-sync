@@ -1,4 +1,13 @@
-import { Notice, Plugin, TFile, TFolder, normalizePath } from 'obsidian';
+import {
+	App,
+	Modal,
+	Notice,
+	Plugin,
+	Setting,
+	TFile,
+	TFolder,
+	normalizePath,
+} from 'obsidian';
 import { readFile } from 'fs/promises';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -97,6 +106,20 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 
 		const preSync = this.settings.preSyncCommand.trim();
 		if (preSync) {
+			// Consent gate: the command string lives in data.json, so never run
+			// a string the user hasn't explicitly approved. Approval is per
+			// exact string — any change re-prompts.
+			if (preSync !== this.settings.approvedPreSyncCommand) {
+				const approved = await new Promise<boolean>((resolve) =>
+					new PreSyncCommandModal(this.app, preSync, resolve).open(),
+				);
+				if (!approved) {
+					new Notice('Pre-sync command not approved — sync cancelled.');
+					return;
+				}
+				this.settings.approvedPreSyncCommand = preSync;
+				await this.saveSettings();
+			}
 			new Notice('Kindle sync: running pre-sync command…');
 			try {
 				await execAsync(preSync, { timeout: 120_000 });
@@ -177,5 +200,59 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 		if (!existing) {
 			await this.app.vault.createFolder(path);
 		}
+	}
+}
+
+/**
+ * One-time confirmation before a pre-sync command string is executed.
+ * Closing the modal any way other than the confirm button counts as a "no".
+ */
+class PreSyncCommandModal extends Modal {
+	private resolved = false;
+
+	constructor(
+		app: App,
+		private command: string,
+		private onResult: (approved: boolean) => void,
+	) {
+		super(app);
+	}
+
+	private resolve(approved: boolean) {
+		if (this.resolved) return;
+		this.resolved = true;
+		this.onResult(approved);
+	}
+
+	onOpen() {
+		this.titleEl.setText('Run pre-sync command?');
+		this.contentEl.createEl('p', {
+			text: 'This sync is configured to run the following shell command first:',
+		});
+		this.contentEl.createEl('pre').createEl('code', { text: this.command });
+		this.contentEl.createEl('p', {
+			text: 'It runs with your user privileges. Only continue if you set this command yourself and trust it — it will then run without asking until it changes.',
+		});
+		new Setting(this.contentEl)
+			.addButton((button) =>
+				button
+					.setButtonText('Run command')
+					.setCta()
+					.onClick(() => {
+						this.resolve(true);
+						this.close();
+					}),
+			)
+			.addButton((button) =>
+				button.setButtonText('Cancel').onClick(() => {
+					this.resolve(false);
+					this.close();
+				}),
+			);
+	}
+
+	onClose() {
+		this.resolve(false);
+		this.contentEl.empty();
 	}
 }
