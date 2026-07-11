@@ -2,7 +2,7 @@
 
 An [Obsidian](https://obsidian.md/) plugin that imports highlights, notes, and bookmarks from a physical Kindle device's `My Clippings.txt` into per-book Markdown notes. One-way, additive, and idempotent: Kindle is the source of truth for new content flowing in; Obsidian is the source of truth for everything once it lands there.
 
-A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. It is not in the community plugin directory.
+A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. The plugin makes **no network requests** and has **zero runtime dependencies** — everything happens between the file you point it at and your vault.
 
 **Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched the final highlight state shown on the device.
 
@@ -42,7 +42,7 @@ Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon bo
 
 ## Setup
 
-Desktop only — the plugin reads a file outside your vault. The plugin itself works on macOS, Windows, and Linux; the automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
+Desktop only — the plugin reads a file outside your vault. The plugin has nothing platform-specific in it and should work on Windows and Linux, but **so far it has only been tested on macOS** — reports welcome. The automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
 
 ### Step 1 — install the plugin into Obsidian
 
@@ -108,6 +108,13 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 
 The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
 
+### Security & privacy disclosures
+
+- **No network requests.** The plugin never talks to any server; it has no runtime dependencies and no telemetry. (The optional macOS helper script contacts only loopback addresses on your own machine.)
+- **Reads one file outside your vault:** the `My Clippings.txt` path you configure — nothing else. This is why the plugin is desktop-only.
+- **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
+- **The optional pre-sync command executes a shell command you wrote yourself**, gated as described below.
+
 ### Security: why a shell-command setting exists, and how it's gated
 
 MTP-only Kindles can't be read from inside Obsidian — fetching `My Clippings.txt` requires a helper that runs outside the app (see "MTP Kindles on macOS" below). The pre-sync command is the hook for that helper. Since it is by nature an arbitrary shell command, it is scoped and gated:
@@ -167,6 +174,8 @@ npm run lint
 ```
 
 `src/parser.ts`, `src/bookNoteWriter.ts`, and `src/syncState.ts` are pure (no Obsidian API) and covered by tests in `tests/`, including end-to-end pipeline tests for the idempotency and edit-preservation guarantees. `src/main.ts` and `src/settings.ts` are the thin Obsidian-facing layer.
+
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Clippings-format samples from other Kindle models and Windows/Linux test reports are especially useful.
 
 ## License
 

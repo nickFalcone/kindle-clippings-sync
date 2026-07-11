@@ -25,6 +25,10 @@ npm run lint    # eslint; the 7 standing warnings (sentence-case "Kindle", setti
 5. The BOM strip in parser.ts must stay written as the `﻿` escape — a literal BOM character in the source breaks grep/tooling.
 6. `manifest.json` `minAppVersion` is 1.4.0 because `Vault.createFolder` requires it (enforced by eslint-plugin-obsidianmd).
 
+## Releasing
+
+`main` requires PRs (repo ruleset) — branch, push, `gh pr create`; never commit to main directly. Releases: see RELEASE.md. The short version: bump with `npm version <x.y.z> --no-git-tag-version` on a branch (runs `version-bump.mjs`, which syncs `manifest.json`/`versions.json`), merge the PR, then tag the merged main commit with the **exact manifest version, no `v` prefix** — CI verifies the match, builds with attestation, and creates a draft release to publish manually. Never reuse a tag.
+
 ## Deployment (this machine)
 
 Owner's live install: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/`. Deploy = `npm run build`, then copy **only `main.js`** (and `manifest.json`/`styles.css` if changed). **Never overwrite that folder's `data.json`** — it holds live sync state; losing it causes duplicate re-appends. The user must reload Obsidian (Cmd+R) after a deploy.

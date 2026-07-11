@@ -165,8 +165,11 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 
 			const existing = this.app.vault.getAbstractFileByPath(filePath);
 			if (existing instanceof TFile) {
-				const content = await this.app.vault.read(existing);
-				await this.app.vault.modify(existing, appendToNote(content, fresh));
+				// Vault.process is atomic — a read+modify pair could clobber a
+				// write that lands in between (e.g. Obsidian Sync/iCloud).
+				await this.app.vault.process(existing, (content) =>
+					appendToNote(content, fresh),
+				);
 			} else if (existing) {
 				// A folder with this name — refuse rather than overwrite anything.
 				new Notice(`Skipping "${filePath}": a folder exists at that path.`);

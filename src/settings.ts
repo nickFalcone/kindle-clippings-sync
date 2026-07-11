@@ -179,7 +179,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 				button
 					.setButtonText('Sync now')
 					.setCta()
-					.onClick(() => this.plugin.syncClippings()),
+					.onClick(() => void this.plugin.syncClippings()),
 			);
 	}
 }
