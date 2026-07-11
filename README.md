@@ -42,7 +42,7 @@ Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon bo
 
 ## Setup
 
-Desktop only — the plugin reads a file outside your vault. The plugin itself works on macOS, Windows, and Linux; the automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
+Desktop only — the plugin reads a file outside your vault. The plugin has nothing platform-specific in it and should work on Windows and Linux, but **so far it has only been tested on macOS** — reports welcome. The automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
 
 ### Step 1 — install the plugin into Obsidian
 

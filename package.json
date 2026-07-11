@@ -1,6 +1,6 @@
 {
 	"name": "kindle-clippings-sync",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"description": "Obsidian plugin that imports Kindle highlights from My Clippings.txt into per-book Markdown notes.",
 	"main": "main.js",
 	"type": "module",

@@ -1,7 +1,7 @@
 {
 	"id": "kindle-clippings-sync",
 	"name": "Kindle Clippings Sync",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"minAppVersion": "1.4.0",
 	"description": "Import highlights, notes, and bookmarks from a Kindle device's My Clippings.txt into per-book Markdown notes.",
 	"author": "Nicholas Falcone",
