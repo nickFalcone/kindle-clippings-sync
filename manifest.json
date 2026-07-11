@@ -5,5 +5,6 @@
 	"minAppVersion": "1.4.0",
 	"description": "Import highlights, notes, and bookmarks from a Kindle device's My Clippings.txt into per-book Markdown notes.",
 	"author": "Nicholas Falcone",
+	"authorUrl": "https://github.com/nickFalcone",
 	"isDesktopOnly": true
 }

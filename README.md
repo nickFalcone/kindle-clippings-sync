@@ -2,7 +2,7 @@
 
 An [Obsidian](https://obsidian.md/) plugin that imports highlights, notes, and bookmarks from a physical Kindle device's `My Clippings.txt` into per-book Markdown notes. One-way, additive, and idempotent: Kindle is the source of truth for new content flowing in; Obsidian is the source of truth for everything once it lands there.
 
-A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. It is not in the community plugin directory.
+A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. The plugin makes **no network requests** and has **zero runtime dependencies** — everything happens between the file you point it at and your vault.
 
 **Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched the final highlight state shown on the device.
 
@@ -107,6 +107,13 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 | Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync --pull-only` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
 
 The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
+
+### Security & privacy disclosures
+
+- **No network requests.** The plugin never talks to any server; it has no runtime dependencies and no telemetry. (The optional macOS helper script contacts only loopback addresses on your own machine.)
+- **Reads one file outside your vault:** the `My Clippings.txt` path you configure — nothing else. This is why the plugin is desktop-only.
+- **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
+- **The optional pre-sync command executes a shell command you wrote yourself**, gated as described below.
 
 ### Security: why a shell-command setting exists, and how it's gated
 
