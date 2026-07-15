@@ -51,7 +51,7 @@ Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](
 Then restart Obsidian and enable **Kindle Clippings Sync** under Settings → Community plugins → Installed plugins.
 
 <details>
-<summary>Or build from source (requires Node ≥ 18)</summary>
+<summary>Or build from source (requires Node ≥ 22)</summary>
 
 ```bash
 git clone https://github.com/nickFalcone/kindle-clippings-sync.git

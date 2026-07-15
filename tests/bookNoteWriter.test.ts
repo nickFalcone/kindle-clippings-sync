@@ -47,6 +47,24 @@ describe('sanitizeFilename', () => {
 	it('trims trailing dots and spaces (Windows)', () => {
 		expect(sanitizeFilename('Title... ')).toBe('Title');
 	});
+
+	it('suffixes Windows reserved device names', () => {
+		expect(sanitizeFilename('CON')).toBe('CON_');
+		expect(sanitizeFilename('aux')).toBe('aux_');
+		expect(sanitizeFilename('Com3')).toBe('Com3_');
+		// Not a reserved name on its own — must not be mangled.
+		expect(sanitizeFilename('Console Wars')).toBe('Console Wars');
+	});
+
+	it('suffixes reserved device names with a dotted remainder, preserving it', () => {
+		expect(sanitizeFilename('CON.txt')).toBe('CON_.txt');
+		expect(sanitizeFilename('lpt1.backup')).toBe('lpt1_.backup');
+	});
+
+	it('does not treat COM0/LPT0 as reserved (only COM1-9/LPT1-9 are)', () => {
+		expect(sanitizeFilename('COM0')).toBe('COM0');
+		expect(sanitizeFilename('LPT0')).toBe('LPT0');
+	});
 });
 
 describe('renderClipping', () => {

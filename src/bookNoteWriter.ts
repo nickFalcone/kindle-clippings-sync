@@ -28,13 +28,28 @@ export const TEMPLATE = {
 	bookmarkLabel: 'Bookmark',
 };
 
+/**
+ * Windows reserved device names — invalid as a filename whether bare (e.g.
+ * "CON") or with a trailing extension-like suffix (e.g. "CON.txt"). COM0 and
+ * LPT0 are NOT reserved — only COM1-COM9 and LPT1-LPT9 are.
+ */
+const WINDOWS_RESERVED_NAME = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
+
 /** Strip characters illegal on macOS/Windows or special in Obsidian links. */
 export function sanitizeFilename(name: string): string {
-	return name
+	const cleaned = name
 		.replace(/[\\/:*?"<>|#^[\]]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.replace(/^\.+|[. ]+$/g, '');
+	if (!WINDOWS_RESERVED_NAME.test(cleaned)) return cleaned;
+	// A book titled exactly "Con" (or "Con.txt"-shaped) would otherwise fail
+	// to create a file on Windows — insert a suffix before the first dot so
+	// any dotted remainder is preserved rather than pushed to the end.
+	const dotIndex = cleaned.indexOf('.');
+	return dotIndex === -1
+		? `${cleaned}_`
+		: `${cleaned.slice(0, dotIndex)}_${cleaned.slice(dotIndex)}`;
 }
 
 function yamlString(value: string): string {
