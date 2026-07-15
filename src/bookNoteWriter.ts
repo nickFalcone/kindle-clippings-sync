@@ -28,13 +28,20 @@ export const TEMPLATE = {
 	bookmarkLabel: 'Bookmark',
 };
 
+/** Windows reserved device names — invalid as a filename regardless of extension. */
+const WINDOWS_RESERVED_NAMES =
+	/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])$/i;
+
 /** Strip characters illegal on macOS/Windows or special in Obsidian links. */
 export function sanitizeFilename(name: string): string {
-	return name
+	const cleaned = name
 		.replace(/[\\/:*?"<>|#^[\]]/g, ' ')
 		.replace(/\s+/g, ' ')
 		.trim()
 		.replace(/^\.+|[. ]+$/g, '');
+	// A book titled exactly "Con" or "Aux" would otherwise fail to create a
+	// file on Windows only — append a suffix that isn't visually intrusive.
+	return WINDOWS_RESERVED_NAMES.test(cleaned) ? `${cleaned}_` : cleaned;
 }
 
 function yamlString(value: string): string {

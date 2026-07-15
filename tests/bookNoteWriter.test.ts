@@ -47,6 +47,14 @@ describe('sanitizeFilename', () => {
 	it('trims trailing dots and spaces (Windows)', () => {
 		expect(sanitizeFilename('Title... ')).toBe('Title');
 	});
+
+	it('suffixes Windows reserved device names', () => {
+		expect(sanitizeFilename('CON')).toBe('CON_');
+		expect(sanitizeFilename('aux')).toBe('aux_');
+		expect(sanitizeFilename('Com3')).toBe('Com3_');
+		// Not a reserved name on its own — must not be mangled.
+		expect(sanitizeFilename('Console Wars')).toBe('Console Wars');
+	});
 });
 
 describe('renderClipping', () => {
