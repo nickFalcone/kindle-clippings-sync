@@ -144,6 +144,14 @@ describe('buildNewNote', () => {
 		expect(note).toContain('title: "The \\"Best\\" Book"');
 	});
 
+	it('escapes backslashes in YAML values', () => {
+		const note = buildNewNote(
+			{ ...BOOK, title: 'C:\\Users\\Book' },
+			[makeClipping()],
+		);
+		expect(note).toContain('title: "C:\\\\Users\\\\Book"');
+	});
+
 	it('omits empty sections', () => {
 		const note = buildNewNote(BOOK, [makeClipping()]);
 		expect(note).not.toContain('## Notes');

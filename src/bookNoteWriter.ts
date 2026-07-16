@@ -52,8 +52,11 @@ export function sanitizeFilename(name: string): string {
 		: `${cleaned.slice(0, dotIndex)}_${cleaned.slice(dotIndex)}`;
 }
 
+// YAML double-quoted scalars are a JSON superset, and Obsidian's frontmatter
+// parser accepts JSON strings directly — so JSON.stringify is a valid (and
+// more correct, e.g. control chars) YAML string encoder here.
 function yamlString(value: string): string {
-	return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+	return JSON.stringify(value);
 }
 
 function renderFrontmatter(book: Book): string {
