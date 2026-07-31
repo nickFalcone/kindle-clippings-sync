@@ -7,7 +7,9 @@ Obsidian plugin (TypeScript, desktop-only) that imports a Kindle's `My Clippings
 ```bash
 npm test        # Vitest suite in tests/ — run after any src/ change
 npm run build   # tsc type-check (src/ AND tests/) + esbuild bundle → main.js
-npm run lint    # eslint; the 7 standing warnings (sentence-case "Kindle", settings API) are accepted
+npm run lint    # eslint
+npm run deploy  # test → build → deploy to live vault → verify (see LOCAL-DEV.md)
+npm run pre-pr  # deploy + lint — run before opening a PR
 ```
 
 ## Architecture — keep the purity boundary
@@ -29,13 +31,13 @@ npm run lint    # eslint; the 7 standing warnings (sentence-case "Kindle", setti
 
 `main` requires PRs (repo ruleset) — branch, push, `gh pr create`; never commit to main directly. Releases: see RELEASE.md. The short version: bump with `npm version <x.y.z> --no-git-tag-version` on a branch (runs `version-bump.mjs`, which syncs `manifest.json`/`versions.json`), merge the PR, then tag the merged main commit with the **exact manifest version, no `v` prefix** — CI verifies the match, builds with attestation, and creates a draft release to publish manually. Never reuse a tag.
 
-## Deployment (this machine)
+## Local dev and deployment
 
-Owner's live install: `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/`. Deploy = `npm run build`, then copy **only `main.js`** (and `manifest.json`/`styles.css` if changed). **Never overwrite that folder's `data.json`** — it holds live sync state; losing it causes duplicate re-appends. The user must reload Obsidian (Cmd+R) after a deploy.
+See [LOCAL-DEV.md](LOCAL-DEV.md) — live vault paths, deploy steps, version-file semantics, and how to verify Obsidian is running the build you just made (hash check; don't trust the Settings version label during dev). **Never overwrite the vault's `data.json`.**
 
 ## scripts/ — macOS MTP helpers
 
-Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. `kindle-sync.sh` wraps it (`--pull-only` is what the plugin's pre-sync command runs; without the flag it also triggers the sync via the Local REST API plugin). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
+Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
 
 ## Testing conventions
 

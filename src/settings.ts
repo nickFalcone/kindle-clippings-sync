@@ -65,6 +65,11 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	/** Empty — settings search indexing requires 1.13+; we keep display() for minAppVersion 1.4.0. */
+	getSettingDefinitions() {
+		return [];
+	}
+
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
@@ -121,7 +126,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Include notes')
-			.setDesc('Import your own annotations (Kindle "Notes").')
+			.setDesc('Import your own annotations (Kindle "notes").')
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.includeNotes)
@@ -164,7 +169,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder('/opt/homebrew/bin/kindle-sync --pull-only')
+					.setPlaceholder('/opt/homebrew/bin/kindle-sync')
 					.setValue(this.plugin.settings.preSyncCommand)
 					.onChange(async (value) => {
 						this.plugin.settings.preSyncCommand = value;
@@ -174,7 +179,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Sync now')
-			.setDesc('Run the same sync as the "Sync Kindle highlights" command.')
+			.setDesc('Run the same sync as the "sync Kindle highlights" command.')
 			.addButton((button) =>
 				button
 					.setButtonText('Sync now')

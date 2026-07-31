@@ -9,6 +9,9 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"deploy": "bash scripts/deploy-local.sh",
+		"pre-pr": "bash scripts/deploy-local.sh --lint",
+		"verify:deploy": "bash scripts/deploy-local.sh --verify-only",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
 		"lint": "eslint ."
 	},
