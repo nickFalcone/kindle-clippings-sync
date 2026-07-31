@@ -1,12 +1,13 @@
 #!/bin/bash
-# kindle-sync — pull My Clippings.txt from a USB-connected Kindle (MTP) and
-# trigger the Kindle Clippings Sync plugin in Obsidian.
+# kindle-sync — pull My Clippings.txt from a USB-connected Kindle (MTP).
 #
 # Newer Kindle firmware (5.16.2+) uses MTP instead of USB Mass Storage, so
 # the device never mounts in Finder on macOS. This script uses libmtp
-# (`brew install libmtp`) to fetch the file, then — if the Obsidian Local
-# REST API plugin is running — fires the plugin's sync command so the whole
-# flow is one terminal command.
+# (`brew install libmtp`) to fetch the file to a local path for the
+# Kindle Clippings Sync Obsidian plugin to import.
+#
+# Intended as the plugin's pre-sync command — Obsidian runs the sync itself
+# after this script finishes.
 #
 # Only one MTP client can hold the device at a time; OpenMTP is quit if
 # it's running.
@@ -17,31 +18,7 @@ set -euo pipefail
 # tools (mtp-files, mtp-getfile) are reachable regardless of caller.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-# --pull-only: fetch the file but don't trigger the Obsidian command. Used
-# when the plugin itself invokes this script as its pre-sync command —
-# without it the script would circularly re-trigger the sync via REST.
-PULL_ONLY=0
-[ "${1:-}" = "--pull-only" ] && PULL_ONLY=1
-
 DEST="${KINDLE_CLIPPINGS_DEST:-$HOME/Kindle/My Clippings.txt}"
-SYNC_COMMAND_ID="kindle-clippings-sync:sync-kindle-highlights"
-
-# Locate the vault whose Local REST API config holds the API key. Set
-# OBSIDIAN_VAULT to your vault's root folder to pick one explicitly;
-# otherwise the first iCloud-synced vault with that plugin installed wins.
-find_rest_data() {
-	if [ -n "${OBSIDIAN_VAULT:-}" ]; then
-		echo "$OBSIDIAN_VAULT/.obsidian/plugins/obsidian-local-rest-api/data.json"
-		return
-	fi
-	local f
-	for f in "$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents"/*/.obsidian/plugins/obsidian-local-rest-api/data.json; do
-		if [ -f "$f" ]; then
-			echo "$f"
-			return
-		fi
-	done
-}
 
 die() { echo "kindle-sync: $*" >&2; exit 1; }
 
@@ -70,25 +47,3 @@ fi
 [ -s "$TMP" ] || die "fetched an empty file — replug and retry"
 mv "$TMP" "$DEST"
 echo "Copied $(wc -c < "$DEST" | tr -d ' ') bytes to $DEST"
-
-[ "$PULL_ONLY" = "1" ] && exit 0
-
-# Trigger the sync inside Obsidian via the Local REST API plugin, if present.
-# The API key is read at runtime from that plugin's own config; it never
-# leaves this machine (both endpoints below are loopback-only).
-REST_DATA="$(find_rest_data)"
-if [ -n "$REST_DATA" ] && [ -f "$REST_DATA" ]; then
-	API_KEY="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("apiKey", ""))' "$REST_DATA" 2>/dev/null || true)"
-	if [ -n "$API_KEY" ]; then
-		for BASE in "https://127.0.0.1:27124" "http://127.0.0.1:27123"; do
-			if curl -ks -o /dev/null -X POST \
-				-H "Authorization: Bearer $API_KEY" \
-				--fail --max-time 5 \
-				"$BASE/commands/$SYNC_COMMAND_ID/"; then
-				echo "Triggered '$SYNC_COMMAND_ID' in Obsidian via $BASE"
-				exit 0
-			fi
-		done
-	fi
-fi
-echo "Could not reach Obsidian's Local REST API — run 'Sync Kindle highlights' in Obsidian manually."

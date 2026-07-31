@@ -22,6 +22,9 @@ export interface KindleClippingsSettings {
 	approvedPreSyncCommand: string;
 }
 
+/** Shared label for the ribbon icon, command palette entry, and settings cross-references. */
+export const SYNC_COMMAND_LABEL = 'Sync Kindle highlights';
+
 export const DEFAULT_SETTINGS: KindleClippingsSettings = {
 	clippingsPath: '',
 	targetFolder: 'Reference/Books',
@@ -63,6 +66,11 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 	constructor(app: App, plugin: KindleClippingsSyncPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
+	}
+
+	/** Empty — settings search indexing requires 1.13+; we keep display() for minAppVersion 1.4.0. */
+	getSettingDefinitions() {
+		return [];
 	}
 
 	display(): void {
@@ -121,7 +129,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Include notes')
-			.setDesc('Import your own annotations (Kindle "Notes").')
+			.setDesc('Import your own annotations (Kindle "notes").')
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.includeNotes)
@@ -164,7 +172,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder('/opt/homebrew/bin/kindle-sync --pull-only')
+					.setPlaceholder('/opt/homebrew/bin/kindle-sync')
 					.setValue(this.plugin.settings.preSyncCommand)
 					.onChange(async (value) => {
 						this.plugin.settings.preSyncCommand = value;
@@ -174,7 +182,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Sync now')
-			.setDesc('Run the same sync as the "Sync Kindle highlights" command.')
+			.setDesc(`Run the same sync as the "${SYNC_COMMAND_LABEL}" command.`)
 			.addButton((button) =>
 				button
 					.setButtonText('Sync now')

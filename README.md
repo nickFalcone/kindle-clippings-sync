@@ -90,7 +90,7 @@ In Obsidian → Settings → Kindle Clippings Sync:
 | Setting | What to enter |
 | --- | --- |
 | Path to `My Clippings.txt` | Modern Kindle on a Mac: `/Users/YOURNAME/Kindle/My Clippings.txt` (the helper puts it there). Older Kindle that appears in Finder: browse to `documents/My Clippings.txt` on the device. |
-| Pre-sync command | Modern Kindle on a Mac: `/opt/homebrew/bin/kindle-sync --pull-only`. Otherwise: leave empty. |
+| Pre-sync command | Modern Kindle on a Mac: `/opt/homebrew/bin/kindle-sync`. Otherwise: leave empty. |
 | Book notes folder | Wherever you want the book notes, e.g. `Reference/Books`. |
 
 Now plug in your Kindle and click the book icon — see "Daily use" above.
@@ -104,13 +104,13 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 | Include notes | on | Your own Kindle annotations |
 | Include bookmarks | off | Bookmarks have no text |
 | Include clipping-limit stubs | on | See "Clipping limit" below |
-| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync --pull-only` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
+| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
 
 The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
 
 ### Security & privacy disclosures
 
-- **No network requests.** The plugin never talks to any server; it has no runtime dependencies and no telemetry. (The optional macOS helper script contacts only loopback addresses on your own machine.)
+- **No network requests.** The plugin and the optional macOS helper script never talk to any server; the plugin has no runtime dependencies and no telemetry.
 - **Reads one file outside your vault:** the `My Clippings.txt` path you configure — nothing else. This is why the plugin is desktop-only.
 - **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
 - **The optional pre-sync command executes a shell command you wrote yourself**, gated as described below.
@@ -152,9 +152,7 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 Newer Kindle firmware replaced USB Mass Storage with MTP, which macOS cannot mount — the device never appears in Finder. Two helpers in `scripts/` bridge this:
 
 - `mtp-pull.c` — small C tool (libusb + libmtp) that looks up and fetches one file by name in a **single MTP session**, with a USB device reset fallback. The stock libmtp CLIs need two sessions (list, then fetch), which Kindles intermittently refuse — and `mtp-getfile` exits 0 even on failure. Build: see the comment in the file.
-- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), then triggers the plugin's sync command via the Local REST API plugin if reachable. `--pull-only` skips the trigger (used as the plugin's pre-sync command). Env overrides: `KINDLE_CLIPPINGS_DEST` for where the file lands (default `~/Kindle/My Clippings.txt`); `OBSIDIAN_VAULT` for which vault's Local REST API config to use (default: the first iCloud-synced vault that has the plugin).
-
-For one-click sync from inside Obsidian, set the plugin's **Pre-sync command** setting to `kindle-sync --pull-only` (full path).
+- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure). Set it as the plugin's **Pre-sync command** (full path, e.g. `/opt/homebrew/bin/kindle-sync`); Obsidian runs the sync after the pull. Env override: `KINDLE_CLIPPINGS_DEST` for where the file lands (default `~/Kindle/My Clippings.txt`).
 
 **Hardware quirk (observed on a Paperwhite Signature Edition):** the Kindle drops off the USB bus entirely a short while after being plugged in — after that, nothing can reach it until you replug. Run the sync soon after connecting the device. If you get "no MTP device found", replug and retry.
 

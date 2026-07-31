@@ -17,6 +17,7 @@ import {
 	DEFAULT_SETTINGS,
 	KindleClippingsSettings,
 	KindleClippingsSettingTab,
+	SYNC_COMMAND_LABEL,
 } from './settings';
 import { parseClippings, groupByBook } from './parser';
 import { appendToNote, buildNewNote, sanitizeFilename } from './bookNoteWriter';
@@ -36,13 +37,13 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 	async onload() {
 		await this.loadPersisted();
 
-		this.addRibbonIcon('book-open', 'Sync Kindle highlights', () => {
+		this.addRibbonIcon('book-open', SYNC_COMMAND_LABEL, () => {
 			void this.syncClippings();
 		});
 
 		this.addCommand({
 			id: 'sync-kindle-highlights',
-			name: 'Sync Kindle highlights',
+			name: SYNC_COMMAND_LABEL,
 			callback: () => {
 				void this.syncClippings();
 			},
