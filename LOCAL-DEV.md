@@ -10,7 +10,7 @@ For public releases (version bumps, tags, CI), see [RELEASE.md](RELEASE.md).
 | What                           | Path                                                                                                  |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
 | Obsidian plugin folder         | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/` |
-| `kindle-sync` helper (symlink) | `/opt/homebrew/bin/kindle-sync` → `~/dev/kindle-clippings-sync/scripts/kindle-sync.sh`                |
+| `kindle-sync` helper (symlink) | `/opt/homebrew/bin/kindle-sync` → `~/kindle-clippings-sync/scripts/kindle-sync.sh` (see README setup; point at your clone) |
 | `mtp-pull` binary              | `/opt/homebrew/bin/mtp-pull` (built from `scripts/mtp-pull.c`)                                        |
 | Default clippings destination  | `~/Kindle/My Clippings.txt`                                                                           |
 

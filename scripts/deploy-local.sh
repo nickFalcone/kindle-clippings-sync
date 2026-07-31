@@ -27,6 +27,16 @@ EOF
 
 die() { echo "deploy-local: $*" >&2; exit 1; }
 
+sha256_file() {
+	if command -v shasum >/dev/null; then
+		shasum -a 256 "$1" | awk '{print $1}'
+	elif command -v sha256sum >/dev/null; then
+		sha256sum "$1" | awk '{print $1}'
+	else
+		die "need shasum (macOS) or sha256sum (Linux) for hash verification"
+	fi
+}
+
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--lint) RUN_LINT=1; shift ;;
@@ -39,8 +49,8 @@ done
 
 verify_hashes() {
 	local repo_hash vault_hash
-	repo_hash="$(shasum -a 256 "$REPO_ROOT/main.js" | awk '{print $1}')"
-	vault_hash="$(shasum -a 256 "$VAULT_PLUGIN/main.js" | awk '{print $1}')"
+	repo_hash="$(sha256_file "$REPO_ROOT/main.js")"
+	vault_hash="$(sha256_file "$VAULT_PLUGIN/main.js")"
 	if [ "$repo_hash" = "$vault_hash" ]; then
 		echo "verify: main.js SHA-256 match ($repo_hash)"
 		return 0

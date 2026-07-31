@@ -22,6 +22,9 @@ export interface KindleClippingsSettings {
 	approvedPreSyncCommand: string;
 }
 
+/** Shared label for the ribbon icon, command palette entry, and settings cross-references. */
+export const SYNC_COMMAND_LABEL = 'Sync Kindle highlights';
+
 export const DEFAULT_SETTINGS: KindleClippingsSettings = {
 	clippingsPath: '',
 	targetFolder: 'Reference/Books',
@@ -179,7 +182,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Sync now')
-			.setDesc('Run the same sync as the "sync Kindle highlights" command.')
+			.setDesc(`Run the same sync as the "${SYNC_COMMAND_LABEL}" command.`)
 			.addButton((button) =>
 				button
 					.setButtonText('Sync now')
