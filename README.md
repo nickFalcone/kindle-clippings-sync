@@ -34,6 +34,15 @@ A free, local alternative to paid highlight-sync services for the "physical Kind
 
 Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon book icon, or the "Sync now" button in settings.
 
+## Where this differs from other Kindle importers
+
+Four differences, each a consequence of the design goals above rather than a feature gap:
+
+- **It can read a Kindle that macOS won't mount.** The usual approaches either look for `My Clippings.txt` on a mounted volume or ask you to pick the file yourself. On firmware 5.16.2+ the device never mounts (see "MTP Kindles on macOS" below), so there is no volume to search and no file to pick. The pre-sync command hook exists to fetch the file off the device first, which is what makes those Kindles work at all.
+- **It reads the device's own file rather than a per-book export.** The other common input is the HTML notebook you export and email yourself from the Kindle app, one book at a time. `My Clippings.txt` carries every book on the device in a single file, including sideloaded titles and personal documents.
+- **It writes nothing into your notes to keep track of state.** There are no sentinel comments and no marker-delimited region that the plugin owns and rewrites. What has already been synced is a hash set in the plugin's own `data.json`, so it never parses a note back to learn what it did, and never has to judge whether rewriting part of your file is safe.
+- **It collapses on-device edit drafts.** Resizing a highlight or editing a note appends a new entry with an overlapping location range instead of updating the original, so a highlight you adjusted three times is in the file three times. Identity based on location or timestamp treats each of those as a separate highlight; this parser merges them down to the final on-device state (see "Duplicates & edit drafts" below).
+
 ## Daily use (after setup)
 
 1. Plug the Kindle into your Mac with a USB cable. If the Kindle shows a "connect to computer" prompt, tap to accept it.
@@ -113,6 +122,7 @@ The note template (headings, bullet format, frontmatter tags) lives in one place
 - **No network requests.** The plugin and the optional macOS helper script never talk to any server; the plugin has no runtime dependencies and no telemetry.
 - **Reads one file outside your vault:** the `My Clippings.txt` path you configure — nothing else. This is why the plugin is desktop-only.
 - **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
+- **The plugin never installs, downloads, or updates anything.** The Homebrew and `mtp-pull` setup in Step 2 is a one-time manual install you run in Terminal yourself; the plugin only ever runs the pre-sync command you configure, and only when you trigger a sync.
 - **The optional pre-sync command executes a shell command you wrote yourself**, gated as described below.
 
 ### Security: why a shell-command setting exists, and how it's gated
@@ -175,6 +185,9 @@ npm run lint
 
 Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Clippings-format samples from other Kindle models and Windows/Linux test reports are especially useful.
 
-## License
+## License and credits
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+- Dedupe hashing uses [cyrb53](https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js) by bryc.
+- The optional `mtp-pull` helper links [libmtp](https://libmtp.sourceforge.net/) and [libusb](https://libusb.info/), both LGPL-2.1. You build it locally; it is never distributed with the plugin.

@@ -29,8 +29,8 @@ export function hashClipping(
 	type: ClippingType,
 	text: string,
 ): string {
-	// cyrb53 — small, fast, non-cryptographic; plenty for deduping a
-	// personal clippings file.
+	// cyrb53 by bryc https://github.com/bryc/code/blob/master/jshash/experimental/cyrb53.js
+	// Small, fast, non-cryptographic; plenty for deduping a personal clippings file.
 	const input = [bookKey, location ?? '', type, text].join(' ');
 	let h1 = 0xdeadbeef;
 	let h2 = 0x41c6ce57;

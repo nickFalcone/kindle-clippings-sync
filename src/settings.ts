@@ -60,17 +60,31 @@ function getElectronDialog(): {
 	}
 }
 
+/*
+ * This tab renders through `display()`, which Obsidian deprecated in 1.13.0 in
+ * favour of the declarative `getSettingDefinitions()` API. That costs two
+ * accepted standing lint warnings — `obsidianmd/settings-tab/
+ * prefer-setting-definitions` and `@typescript-eslint/no-deprecated` — and one
+ * real thing: these settings don't appear in settings search on 1.13.0+.
+ *
+ * We stay here because `minAppVersion` is 1.4.0. Migrating fully means
+ * dropping `display()`, which only works from 1.13.0 and abandons everyone
+ * below it. The middle path — implementing `getSettingDefinitions()` while
+ * keeping `display()` — is viable and would restore search (nothing calls the
+ * new method before 1.13, so old versions are unaffected), at the cost of
+ * describing every setting twice with the two able to drift. Worth revisiting
+ * when `minAppVersion` moves up for other reasons, or if search matters more
+ * than the duplication.
+ *
+ * Don't add a stub returning `[]`. That rule only checks whether a member of
+ * that name exists, so a stub silences it and leaves search just as broken.
+ */
 export class KindleClippingsSettingTab extends PluginSettingTab {
 	plugin: KindleClippingsSyncPlugin;
 
 	constructor(app: App, plugin: KindleClippingsSyncPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
-	}
-
-	/** Empty — settings search indexing requires 1.13+; we keep display() for minAppVersion 1.4.0. */
-	getSettingDefinitions() {
-		return [];
 	}
 
 	display(): void {

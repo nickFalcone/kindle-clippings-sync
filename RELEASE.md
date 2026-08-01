@@ -7,6 +7,12 @@ The community-plugin directory has two hard rules this process is built around:
 
 `main` requires PRs (repo ruleset), so version bumps go through a branch; the tag is created afterwards, on the merged commit.
 
+## Before you release
+
+Run the compliance audit in [SUBMISSION-RULES.md](SUBMISSION-RULES.md) — it holds all 89 directory rules, their sources, and a copy-paste prompt for pointing an agent at them. Do this **before** the version bump so any fixes ship in the release rather than needing another one.
+
+Expect the audit to flag SP-8 (the published release no longer matches `main`) whenever `src/` has moved since the last tag; that's the condition this release resolves, and it should be clean again once step 5 is done. Anything else the audit reports should be fixed or consciously added to that file's "Accepted deviations" table before you bump.
+
 ## Steps
 
 1. **Branch from up-to-date `main`** and bump the version:
@@ -52,8 +58,12 @@ The community-plugin directory has two hard rules this process is built around:
 
 ## First release only — directory submission
 
-After 0.1.0 is published:
+Submission is **not** a pull request against `obsidianmd/obsidian-releases` — that flow is retired. It now goes through the Obsidian Community portal. After the release is published:
 
-1. PR the plugin's entry into [`obsidianmd/obsidian-releases`](https://github.com/obsidianmd/obsidian-releases) (`community-plugins.json`), following [Submit your plugin](https://docs.obsidian.md/Plugins/Releasing/Submit+your+plugin).
-2. In the PR description, proactively disclose the two things reviewers will ask about: the plugin reads one file outside the vault (the configured `My Clippings.txt`), and the optional pre-sync command executes a user-authored shell command behind a per-exact-string consent modal. Both are covered in README "Security & privacy disclosures".
-3. Address review-bot feedback by bumping the version and publishing a new release (steps above), then updating the PR.
+1. Re-run the [SUBMISSION-RULES.md](SUBMISSION-RULES.md) audit and confirm SP-8 is clean. The directory reads `manifest.json` from HEAD of the default branch, but users install the assets from the matching release, so both must be the same code.
+2. Sign in at [community.obsidian.md](https://community.obsidian.md) with your Obsidian account and link the GitHub account that owns the repository — that's how the directory verifies ownership.
+3. **Plugins → New plugin**, enter `https://github.com/nickFalcone/kindle-clippings-sync`, agree to the [Developer policies](https://docs.obsidian.md/Developer+policies), and submit.
+4. Review is automated and its feedback appears in the directory, not in PR comments. Address it by fixing the code and publishing a **new release with an incremented version** (steps above); the plugin isn't installable from inside Obsidian until the automated review passes.
+5. Confirm the README "Security & privacy disclosures" section is current before submitting — the outside-vault file read and the user-authored pre-sync command are this plugin's two review-sensitive capabilities, and the directory surfaces capability disclosures on the plugin page.
+
+Every subsequent release is rescanned and re-scored, so the scorecard notes in [SUBMISSION-RULES.md](SUBMISSION-RULES.md) apply to all releases, not just the first.
