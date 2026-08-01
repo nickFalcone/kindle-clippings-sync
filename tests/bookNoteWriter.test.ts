@@ -136,6 +136,30 @@ describe('buildNewNote', () => {
 		);
 	});
 
+	it('writes no tracking markers into the note', () => {
+		// Sync state lives in the plugin's data.json, never in the note. Nothing
+		// generated may carry an ID comment or a delimited region the plugin
+		// would later have to own, parse back, or rewrite — that is what keeps
+		// output append-only and the user's file entirely theirs.
+		const note = buildNewNote(BOOK, [
+			makeClipping(),
+			makeClipping({ type: 'note', text: 'remember this', location: '812' }),
+		]);
+		const appended = appendToNote(
+			note,
+			[makeClipping({ text: 'Later highlight.', location: '900-901' })],
+		);
+
+		for (const output of [note, appended]) {
+			expect(output).not.toContain('<!--');
+			expect(output).not.toContain('-->');
+			expect(output).not.toMatch(/kindle[- ]clippings[- ]sync/i);
+			expect(output).not.toMatch(/\b(start|end|begin)\s*marker\b/i);
+		}
+		// The clipping hash is the sync key — it must never be echoed into output.
+		expect(appended).not.toContain(makeClipping().hash);
+	});
+
 	it('escapes quotes in YAML values', () => {
 		const note = buildNewNote(
 			{ ...BOOK, title: 'The "Best" Book' },

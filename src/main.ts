@@ -9,7 +9,7 @@ import {
 	normalizePath,
 } from 'obsidian';
 import { readFile } from 'fs/promises';
-import { exec } from 'child_process';
+import { exec, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
@@ -33,6 +33,8 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 	settings!: KindleClippingsSettings;
 	syncState!: SyncStateStore;
 	private syncing = false;
+	private unloaded = false;
+	private preSyncChild: ChildProcess | null = null;
 
 	async onload() {
 		await this.loadPersisted();
@@ -50,6 +52,16 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new KindleClippingsSettingTab(this.app, this));
+	}
+
+	onunload() {
+		// A sync can be mid-flight when the plugin is disabled or updated: the
+		// pre-sync command is a child process that would outlive us, and the
+		// awaiting doSync() would carry on writing notes through a dead plugin
+		// instance. Kill the one and let the other bail at its next checkpoint.
+		this.unloaded = true;
+		this.preSyncChild?.kill();
+		this.preSyncChild = null;
 	}
 
 	async loadPersisted() {
@@ -123,8 +135,13 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 			}
 			new Notice('Kindle sync: running pre-sync command…');
 			try {
-				await execAsync(preSync, { timeout: 120_000 });
+				const pending = execAsync(preSync, { timeout: 120_000 });
+				this.preSyncChild = pending.child;
+				await pending;
 			} catch (error) {
+				// onunload() kills the child — that rejection isn't a failure
+				// worth reporting to a user who just disabled the plugin.
+				if (this.unloaded) return;
 				// A failed pull usually means the Kindle isn't connected; the
 				// on-disk copy is stale, so syncing would only mask that.
 				const message =
@@ -134,7 +151,10 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 						: String(error);
 				new Notice(`Pre-sync command failed — sync aborted.\n${message}`);
 				return;
+			} finally {
+				this.preSyncChild = null;
 			}
+			if (this.unloaded) return;
 		}
 
 		let raw: string;
@@ -152,6 +172,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 		let touchedBooks = 0;
 
 		for (const book of books) {
+			if (this.unloaded) return;
 			const fresh = book.clippings.filter(
 				(c) =>
 					this.includeClipping(c) && !this.syncState.has(book.key, c.hash),
