@@ -50,7 +50,7 @@ Requires Node ≥ 22 (CI tests 22.x and 24.x). To try your build in Obsidian, co
 ### Tests and style
 
 - Add tests for any `src/` change. Parser fixtures are inline strings built with the `entry()` helper in `tests/parser.test.ts`. Extend the real-device patterns there rather than inventing formats. The append-only/idempotency guarantees asserted in `tests/pipeline.test.ts` must keep passing.
-- `npm run lint` must report **no errors and no new warnings**. Exactly one standing warning is accepted: `obsidianmd/settings-tab/prefer-setting-definitions` on the settings tab, because adopting the declarative settings API would raise `minAppVersion` from 1.4.0 to 1.13.0 (see the comment in `src/settings.ts`). The rule can't be suppressed, and stubbing the method out to hide it isn't a fix.
+- `npm run lint` must report **no errors and no new warnings**. Exactly two standing warnings are accepted, both on the settings tab and both from the same cause — it renders through `display()`, which Obsidian deprecated in 1.13.0 in favour of the declarative settings API: `obsidianmd/settings-tab/prefer-setting-definitions` and `@typescript-eslint/no-deprecated`. Keeping `display()` is deliberate, because `minAppVersion` is 1.4.0 and the replacement requires 1.13.0; the comment above `KindleClippingsSettingTab` in `src/settings.ts` covers the migration paths. Neither rule can be suppressed, and stubbing the method out to hide the first isn't a fix.
 - Formatting follows `.editorconfig` (tabs); match the style of the surrounding code.
 
 ## Releases
