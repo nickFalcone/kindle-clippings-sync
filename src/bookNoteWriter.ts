@@ -23,6 +23,8 @@ export const TEMPLATE = {
 	/** Section order in a fresh note and when appending missing sections. */
 	sectionOrder: ['highlight', 'note', 'bookmark'] as ClippingType[],
 	frontmatterTags: ['books'],
+	/** Alt text for the optional cover image rendered after frontmatter. */
+	coverImageAlt: 'book-cover',
 	truncatedLabel:
 		'**[Clipping limit reached — Kindle did not save this highlight text]**',
 	bookmarkLabel: 'Bookmark',
@@ -106,6 +108,9 @@ function groupByType(clippings: Clipping[]): Map<ClippingType, Clipping[]> {
 /** Build a brand-new note: frontmatter plus one section per clipping type. */
 export function buildNewNote(book: Book, clippings: Clipping[]): string {
 	const parts = [renderFrontmatter(book)];
+	if (book.coverUrl) {
+		parts.push(`![${TEMPLATE.coverImageAlt}](${book.coverUrl})`);
+	}
 	for (const [type, members] of groupByType(clippings)) {
 		parts.push(
 			`${TEMPLATE.headings[type]}\n\n${members.map(renderClipping).join('\n')}`,
@@ -127,6 +132,33 @@ export function appendToNote(existing: string, clippings: Clipping[]): string {
 		content = insertIntoSection(content, TEMPLATE.headings[type], bullets);
 	}
 	return content;
+}
+
+/**
+ * Insert a cover image line after frontmatter when the note has none yet.
+ * Existing highlight/note bullets are never touched — only a missing cover line
+ * is added, once, so re-sync can enrich notes created before cover support.
+ */
+export function insertCoverIfMissing(
+	existing: string,
+	coverUrl: string | null | undefined,
+): string {
+	if (!coverUrl || existing.includes(`![${TEMPLATE.coverImageAlt}]`)) {
+		return existing;
+	}
+	const lines = existing.split('\n');
+	if (lines[0]?.trim() !== '---') return existing;
+	let frontmatterEnd = -1;
+	for (let i = 1; i < lines.length; i++) {
+		if (lines[i]?.trim() === '---') {
+			frontmatterEnd = i;
+			break;
+		}
+	}
+	if (frontmatterEnd === -1) return existing;
+	const coverLine = `![${TEMPLATE.coverImageAlt}](${coverUrl})`;
+	lines.splice(frontmatterEnd + 1, 0, '', coverLine);
+	return lines.join('\n');
 }
 
 function insertIntoSection(

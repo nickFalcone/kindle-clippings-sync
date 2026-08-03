@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	appendToNote,
 	buildNewNote,
+	insertCoverIfMissing,
 	renderClipping,
 	sanitizeFilename,
 } from '../src/bookNoteWriter';
@@ -181,6 +182,32 @@ describe('buildNewNote', () => {
 		expect(note).not.toContain('## Notes');
 		expect(note).not.toContain('## Bookmarks');
 	});
+
+	it('renders an absolute cover image URL after frontmatter when coverUrl is set', () => {
+		const note = buildNewNote(
+			{
+				...BOOK,
+				coverUrl:
+					'https://m.media-amazon.com/images/P/B0DQLMS9VG.01._SL500_.jpg',
+			},
+			[makeClipping()],
+		);
+		expect(note).toContain(
+			'![book-cover](https://m.media-amazon.com/images/P/B0DQLMS9VG.01._SL500_.jpg)',
+		);
+		const frontmatterEnd = note.indexOf('---', 4);
+		const coverIdx = note.indexOf('![book-cover]');
+		const highlightsIdx = note.indexOf('## Highlights');
+		expect(frontmatterEnd).toBeGreaterThan(0);
+		expect(coverIdx).toBeGreaterThan(frontmatterEnd);
+		expect(highlightsIdx).toBeGreaterThan(coverIdx);
+	});
+
+	it('omits a cover image when coverUrl is not set', () => {
+		const note = buildNewNote(BOOK, [makeClipping()]);
+		expect(note).not.toMatch(/!\[book-cover\]/);
+		expect(note).not.toContain('media-amazon.com');
+	});
 });
 
 describe('appendToNote — idempotent append-only semantics', () => {
@@ -250,5 +277,49 @@ describe('appendToNote — idempotent append-only semantics', () => {
 
 	it('is a no-op transformation when there is nothing to add', () => {
 		expect(appendToNote(existing, [])).toBe(existing);
+	});
+
+	it('never adds a cover image when appending to an existing note', () => {
+		const added = makeClipping({ text: 'New highlight.', location: '1500' });
+		const result = appendToNote(existing, [added]);
+		expect(result).not.toMatch(/!\[book-cover\]/);
+		expect(result).not.toContain('media-amazon.com');
+	});
+});
+
+describe('insertCoverIfMissing', () => {
+	const coverUrl =
+		'https://m.media-amazon.com/images/P/B0DQLMS9VG.01._SL500_.jpg';
+	const existing = [
+		'---',
+		'title: "Fahrenheit 451"',
+		'source: kindle',
+		'---',
+		'',
+		'## Highlights',
+		'',
+		'- It was a pleasure to burn. (Page 92, Location 1406-1407)',
+		'',
+		'My own commentary paragraph that must survive syncs.',
+		'',
+	].join('\n');
+
+	it('inserts a cover line after frontmatter when absent', () => {
+		const result = insertCoverIfMissing(existing, coverUrl);
+		expect(result).toContain(`![book-cover](${coverUrl})`);
+		const fmEnd = result.indexOf('---', 4);
+		const coverIdx = result.indexOf('![book-cover]');
+		expect(coverIdx).toBeGreaterThan(fmEnd);
+		expect(result).toContain('My own commentary paragraph that must survive syncs.');
+	});
+
+	it('is a no-op when a cover is already present', () => {
+		const withCover = insertCoverIfMissing(existing, coverUrl);
+		expect(insertCoverIfMissing(withCover, coverUrl)).toBe(withCover);
+		expect(withCover.match(/!\[book-cover\]/g)).toHaveLength(1);
+	});
+
+	it('is a no-op when coverUrl is null', () => {
+		expect(insertCoverIfMissing(existing, null)).toBe(existing);
 	});
 });

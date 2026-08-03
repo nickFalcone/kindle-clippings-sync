@@ -9,6 +9,7 @@ import {
 	normalizePath,
 } from 'obsidian';
 import { readFile } from 'fs/promises';
+import { dirname, join } from 'path';
 import { exec, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 
@@ -20,7 +21,12 @@ import {
 	SYNC_COMMAND_LABEL,
 } from './settings';
 import { parseClippings, groupByBook } from './parser';
-import { appendToNote, buildNewNote, sanitizeFilename } from './bookNoteWriter';
+import { appendToNote, buildNewNote, insertCoverIfMissing, sanitizeFilename } from './bookNoteWriter';
+import { lookupCoverUrl, parseBookAsinsJson } from './coverUrl';
+import {
+	matchBookKeysToAsins,
+	parseDeviceAsinsJson,
+} from './deviceAsins';
 import { SyncStateStore } from './syncState';
 import { Clipping } from './types';
 
@@ -168,6 +174,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 		}
 
 		const books = groupByBook(parseClippings(raw));
+		const bookAsins = await this.loadBookAsins(books.map((book) => book.key));
 		let newClippings = 0;
 		let touchedBooks = 0;
 
@@ -177,7 +184,6 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				(c) =>
 					this.includeClipping(c) && !this.syncState.has(book.key, c.hash),
 			);
-			if (fresh.length === 0) continue;
 
 			const fileName = sanitizeFilename(book.key);
 			if (!fileName) continue;
@@ -185,21 +191,33 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				`${this.settings.targetFolder}/${fileName}.md`,
 			);
 
+			const coverUrl = lookupCoverUrl(book.key, bookAsins);
 			const existing = this.app.vault.getAbstractFileByPath(filePath);
 			if (existing instanceof TFile) {
-				// Vault.process is atomic — a read+modify pair could clobber a
-				// write that lands in between (e.g. Obsidian Sync/iCloud).
-				await this.app.vault.process(existing, (content) =>
-					appendToNote(content, fresh),
-				);
+				if (fresh.length > 0 || coverUrl) {
+					// Vault.process is atomic — a read+modify pair could clobber a
+					// write that lands in between (e.g. Obsidian Sync/iCloud).
+					await this.app.vault.process(existing, (content) => {
+						let updated = insertCoverIfMissing(content, coverUrl);
+						if (fresh.length > 0) {
+							updated = appendToNote(updated, fresh);
+						}
+						return updated;
+					});
+				}
 			} else if (existing) {
 				// A folder with this name — refuse rather than overwrite anything.
 				new Notice(`Skipping "${filePath}": a folder exists at that path.`);
 				continue;
-			} else {
+			} else if (fresh.length > 0) {
 				await this.ensureFolder(this.settings.targetFolder);
-				await this.app.vault.create(filePath, buildNewNote(book, fresh));
+				await this.app.vault.create(
+					filePath,
+					buildNewNote({ ...book, coverUrl }, fresh),
+				);
 			}
+
+			if (fresh.length === 0) continue;
 
 			for (const clipping of fresh) {
 				this.syncState.add(book.key, clipping.hash);
@@ -216,6 +234,42 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				? 'Kindle sync: nothing new.'
 				: `Kindle sync: added ${newClippings} clipping${newClippings === 1 ? '' : 's'} across ${touchedBooks} book${touchedBooks === 1 ? '' : 's'}.`,
 		);
+	}
+
+	/** Optional bookKey → ASIN map for cover URLs. Absent or unreadable → empty. */
+	private async loadBookAsins(
+		bookKeys: string[],
+	): Promise<Record<string, string>> {
+		let result: Record<string, string> = {};
+
+		const clippingsPath = this.settings.clippingsPath.trim();
+		if (clippingsPath) {
+			const devicePath = join(
+				dirname(clippingsPath),
+				'device-asins.raw.json',
+			);
+			try {
+				const raw = await readFile(devicePath, 'utf8');
+				result = matchBookKeysToAsins(
+					bookKeys,
+					parseDeviceAsinsJson(raw),
+				);
+			} catch {
+				// Optional — kindle-sync writes this when mtp-pull is rebuilt.
+			}
+		}
+
+		const manualPath = this.settings.bookAsinsPath.trim();
+		if (manualPath) {
+			try {
+				const raw = await readFile(manualPath, 'utf8');
+				result = { ...result, ...parseBookAsinsJson(raw) };
+			} catch {
+				// Optional manual overrides.
+			}
+		}
+
+		return result;
 	}
 
 	private async ensureFolder(folder: string): Promise<void> {

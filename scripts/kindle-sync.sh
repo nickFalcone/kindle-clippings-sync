@@ -19,6 +19,7 @@ set -euo pipefail
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 DEST="${KINDLE_CLIPPINGS_DEST:-$HOME/Kindle/My Clippings.txt}"
+ASINS_RAW="${KINDLE_DEVICE_ASINS_DEST:-$(dirname "$DEST")/device-asins.raw.json}"
 
 die() { echo "kindle-sync: $*" >&2; exit 1; }
 
@@ -38,12 +39,15 @@ echo "Fetching My Clippings.txt from the Kindle..."
 mkdir -p "$(dirname "$DEST")"
 TMP="$(mktemp -d)/clippings.txt" # path must not exist yet
 trap 'rm -rf "$(dirname "$TMP")"' EXIT
-if ! mtp-pull "My Clippings.txt" "$TMP"; then
+if ! mtp-pull "My Clippings.txt" "$TMP" "$ASINS_RAW"; then
 	# Kindles drop the MTP session when they sleep; one retry after a pause
 	# covers the common wake-up case.
 	sleep 3
-	mtp-pull "My Clippings.txt" "$TMP" || die "MTP fetch failed — unplug/replug the Kindle, tap its connect prompt, and retry"
+	mtp-pull "My Clippings.txt" "$TMP" "$ASINS_RAW" || die "MTP fetch failed — unplug/replug the Kindle, tap its connect prompt, and retry"
 fi
 [ -s "$TMP" ] || die "fetched an empty file — replug and retry"
 mv "$TMP" "$DEST"
 echo "Copied $(wc -c < "$DEST" | tr -d ' ') bytes to $DEST"
+if [ -f "$ASINS_RAW" ]; then
+	echo "Wrote device ASIN sidecar list to $ASINS_RAW ($(wc -c < "$ASINS_RAW" | tr -d ' ') bytes)"
+fi
