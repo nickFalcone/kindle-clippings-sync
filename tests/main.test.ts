@@ -45,9 +45,12 @@ const MANIFEST = {
 } as unknown as PluginManifest;
 
 function readPath(path: Parameters<typeof readFile>[0]): string {
-	if (typeof path === 'string') return path;
-	if (Buffer.isBuffer(path)) return path.toString('utf8');
-	throw new Error('unexpected readFile path type in test');
+	let p: string;
+	if (typeof path === 'string') p = path;
+	else if (Buffer.isBuffer(path)) p = path.toString('utf8');
+	else throw new Error('unexpected readFile path type in test');
+	// Node path.join uses backslashes on Windows; settings use forward slashes.
+	return p.replace(/\\/g, '/');
 }
 
 function makePlugin(app: App): KindleClippingsSyncPlugin {
