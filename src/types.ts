@@ -35,6 +35,8 @@ export interface Book {
 	title: string;
 	authors: string[];
 	clippings: Clipping[];
+	/** Absolute cover art URL; only written when creating a new note. */
+	coverUrl?: string | null;
 }
 
 export interface SyncState {

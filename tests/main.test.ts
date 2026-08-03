@@ -44,6 +44,12 @@ const MANIFEST = {
 	version: '0.0.0',
 } as unknown as PluginManifest;
 
+function readPath(path: Parameters<typeof readFile>[0]): string {
+	if (typeof path === 'string') return path;
+	if (Buffer.isBuffer(path)) return path.toString('utf8');
+	throw new Error('unexpected readFile path type in test');
+}
+
 function makePlugin(app: App): KindleClippingsSyncPlugin {
 	return new KindleClippingsSyncPlugin(app as unknown as ObsidianApp, MANIFEST);
 }
@@ -244,5 +250,135 @@ ${FIXTURE}`,
 			expect(content).not.toContain('<!--');
 			expect(content).not.toMatch(/kindle[- ]clippings[- ]sync/i);
 		}
+	});
+
+	it('renders a cover image URL on a new note when bookAsinsPath maps the bookKey', async () => {
+		const { app, plugin } = await setup();
+		plugin.settings.bookAsinsPath = '/tmp/book-asins.json';
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/My Clippings.txt') return FIXTURE;
+			if (p === '/tmp/book-asins.json') {
+				return JSON.stringify({
+					'Fahrenheit 451 (Ray Bradbury)': 'B003GXEW00',
+				});
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+
+		await plugin.syncClippings();
+
+		expect(app.vault.files.get(FAHRENHEIT)).toContain(
+			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg)',
+		);
+		expect(app.vault.files.get(KAHNEMAN)).not.toContain('![book-cover]');
+	});
+
+	it('renders a cover from device-asins.raw.json beside the clippings file', async () => {
+		const { app, plugin } = await setup();
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/My Clippings.txt') return FIXTURE;
+			if (p === '/tmp/device-asins.raw.json') {
+				return JSON.stringify([
+					{ label: 'Fahrenheit 451', asin: 'B003GXEW00' },
+				]);
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+
+		await plugin.syncClippings();
+
+		expect(app.vault.files.get(FAHRENHEIT)).toContain(
+			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg)',
+		);
+	});
+
+	it('does not add a cover image when appending to an existing note', async () => {
+		const { app, plugin } = await setup();
+		plugin.settings.bookAsinsPath = '/tmp/book-asins.json';
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/My Clippings.txt') return FIXTURE;
+			if (p === '/tmp/book-asins.json') {
+				return JSON.stringify({
+					'Fahrenheit 451 (Ray Bradbury)': 'B003GXEW00',
+				});
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+		await plugin.syncClippings();
+
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/My Clippings.txt') {
+				return (
+					FIXTURE +
+					`Fahrenheit 451 (Ray Bradbury)
+- Your Highlight on page 60 | location 900-901 | Added on Sunday, 27 March 2016 10:00:00
+
+Fresh new highlight.
+==========
+`
+				);
+			}
+			if (p === '/tmp/book-asins.json') {
+				return JSON.stringify({
+					'Fahrenheit 451 (Ray Bradbury)': 'B003GXEW00',
+				});
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+		await plugin.syncClippings();
+
+		const note = app.vault.files.get(FAHRENHEIT)!;
+		expect(note.match(/!\[book-cover\]/g)).toHaveLength(1);
+		expect(note).toContain('- Fresh new highlight. (Page 60, Location 900-901)');
+	});
+
+	it('matches device-asins.raw.json beside the clippings file when bookAsinsPath is unset', async () => {
+		const { app, plugin } = await setup();
+		plugin.settings.clippingsPath = '/tmp/kindle/My Clippings.txt';
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/kindle/My Clippings.txt') return FIXTURE;
+			if (p === '/tmp/kindle/device-asins.raw.json') {
+				return JSON.stringify([
+					{ label: 'Fahrenheit 451', asin: 'B003GXEW00' },
+				]);
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+
+		await plugin.syncClippings();
+
+		expect(app.vault.files.get(FAHRENHEIT)).toContain(
+			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg',
+		);
+	});
+
+	it('inserts a cover into an existing note even when there is nothing new to sync', async () => {
+		const { app, plugin } = await setup();
+		plugin.settings.clippingsPath = '/tmp/kindle/My Clippings.txt';
+		await plugin.syncClippings();
+		expect(app.vault.files.get(FAHRENHEIT)).not.toContain('![book-cover]');
+
+		vi.mocked(readFile).mockImplementation(async (path) => {
+			const p = readPath(path);
+			if (p === '/tmp/kindle/My Clippings.txt') return FIXTURE;
+			if (p === '/tmp/kindle/device-asins.raw.json') {
+				return JSON.stringify([
+					{ label: 'Fahrenheit 451', asin: 'B003GXEW00' },
+				]);
+			}
+			throw new Error(`unexpected read: ${p}`);
+		});
+		plugin.settings.clippingsPath = '/tmp/kindle/My Clippings.txt';
+
+		await plugin.syncClippings();
+
+		expect(app.vault.files.get(FAHRENHEIT)).toContain(
+			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg',
+		);
 	});
 });

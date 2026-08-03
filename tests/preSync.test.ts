@@ -276,8 +276,11 @@ describe('pre-sync command — execution', () => {
 		await plugin.syncClippings();
 
 		// The whole point of the hook: fetch the file, then read it. Reading
-		// first would sync a stale copy on every run.
-		expect(exec.log).toEqual(['exec', 'read']);
+		// first would sync a stale copy on every run. A second read for the
+		// optional device-asins sidecar may follow — still after the command.
+		expect(exec.log[0]).toBe('exec');
+		expect(exec.log[1]).toBe('read');
+		expect(exec.log.length).toBeGreaterThanOrEqual(2);
 		expect(app.vault.files.has(NOTE)).toBe(true);
 	});
 

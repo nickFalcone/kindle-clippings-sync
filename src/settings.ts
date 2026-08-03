@@ -20,6 +20,11 @@ export interface KindleClippingsSettings {
 	 * to the setting re-prompts before the next sync.
 	 */
 	approvedPreSyncCommand: string;
+	/**
+	 * Optional absolute path to a JSON file mapping exact clippings book keys
+	 * to Amazon ASINs, used to render cover art URLs in newly created notes.
+	 */
+	bookAsinsPath: string;
 }
 
 /** Shared label for the ribbon icon, command palette entry, and settings cross-references. */
@@ -33,6 +38,7 @@ export const DEFAULT_SETTINGS: KindleClippingsSettings = {
 	includeTruncated: true,
 	preSyncCommand: '',
 	approvedPreSyncCommand: '',
+	bookAsinsPath: '',
 };
 
 /**
@@ -175,6 +181,21 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.includeTruncated)
 					.onChange(async (value) => {
 						this.plugin.settings.includeTruncated = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Book ASINs file')
+			.setDesc(
+				'Optional JSON file mapping exact clippings book keys to ASINs. Overrides device-asins.raw.json when both are present. When set, newly created notes include a cover image URL (no local image files). Existing notes are never updated.',
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('~/Kindle/book-asins.json')
+					.setValue(this.plugin.settings.bookAsinsPath)
+					.onChange(async (value) => {
+						this.plugin.settings.bookAsinsPath = value;
 						await this.plugin.saveSettings();
 					}),
 			);

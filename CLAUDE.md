@@ -39,7 +39,7 @@ See [LOCAL-DEV.md](LOCAL-DEV.md) — live vault paths, deploy steps, version-fil
 
 ## scripts/ — macOS MTP helpers
 
-Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
+Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. An optional third argument writes `device-asins.raw.json` (ASINs from `.sdr` folder names in the same listing pass). `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
 
 ## Testing conventions
 
