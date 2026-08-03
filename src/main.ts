@@ -21,8 +21,8 @@ import {
 	SYNC_COMMAND_LABEL,
 } from './settings';
 import { parseClippings, groupByBook } from './parser';
-import { appendToNote, buildNewNote, insertCoverIfMissing, sanitizeFilename } from './bookNoteWriter';
-import { lookupCoverUrl, parseBookAsinsJson } from './coverUrl';
+import { appendToNote, buildNewNote, sanitizeFilename } from './bookNoteWriter';
+import { coverUrlFromAsin, parseBookAsinsJson } from './coverUrl';
 import {
 	matchBookKeysToAsins,
 	parseDeviceAsinsJson,
@@ -184,6 +184,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				(c) =>
 					this.includeClipping(c) && !this.syncState.has(book.key, c.hash),
 			);
+			if (fresh.length === 0) continue;
 
 			const fileName = sanitizeFilename(book.key);
 			if (!fileName) continue;
@@ -191,33 +192,26 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 				`${this.settings.targetFolder}/${fileName}.md`,
 			);
 
-			const coverUrl = lookupCoverUrl(book.key, bookAsins);
+			const asin = bookAsins[book.key];
+			const coverUrl = asin ? coverUrlFromAsin(asin) : null;
 			const existing = this.app.vault.getAbstractFileByPath(filePath);
 			if (existing instanceof TFile) {
-				if (fresh.length > 0 || coverUrl) {
-					// Vault.process is atomic — a read+modify pair could clobber a
-					// write that lands in between (e.g. Obsidian Sync/iCloud).
-					await this.app.vault.process(existing, (content) => {
-						let updated = insertCoverIfMissing(content, coverUrl);
-						if (fresh.length > 0) {
-							updated = appendToNote(updated, fresh);
-						}
-						return updated;
-					});
-				}
+				// Vault.process is atomic — a read+modify pair could clobber a
+				// write that lands in between (e.g. Obsidian Sync/iCloud).
+				await this.app.vault.process(existing, (content) =>
+					appendToNote(content, fresh),
+				);
 			} else if (existing) {
 				// A folder with this name — refuse rather than overwrite anything.
 				new Notice(`Skipping "${filePath}": a folder exists at that path.`);
 				continue;
-			} else if (fresh.length > 0) {
+			} else {
 				await this.ensureFolder(this.settings.targetFolder);
 				await this.app.vault.create(
 					filePath,
 					buildNewNote({ ...book, coverUrl }, fresh),
 				);
 			}
-
-			if (fresh.length === 0) continue;
 
 			for (const clipping of fresh) {
 				this.syncState.add(book.key, clipping.hash);
@@ -255,7 +249,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 					parseDeviceAsinsJson(raw),
 				);
 			} catch {
-				// Optional — kindle-sync writes this when mtp-pull is rebuilt.
+				// Optional — kindle-sync writes this beside the clippings file.
 			}
 		}
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	coverUrlFromAsin,
 	isValidAsin,
-	lookupCoverUrl,
 	parseBookAsinsJson,
 } from '../src/coverUrl';
 
@@ -53,18 +52,5 @@ describe('parseBookAsinsJson', () => {
 
 	it('returns an empty map for malformed JSON', () => {
 		expect(parseBookAsinsJson('{')).toEqual({});
-	});
-});
-
-describe('lookupCoverUrl', () => {
-	it('returns a cover URL when the exact bookKey is mapped', () => {
-		const asins = { 'Fahrenheit 451 (Ray Bradbury)': 'B003GXEW00' };
-		expect(lookupCoverUrl('Fahrenheit 451 (Ray Bradbury)', asins)).toBe(
-			'https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg',
-		);
-	});
-
-	it('returns null when the bookKey is absent', () => {
-		expect(lookupCoverUrl('Unknown (Author)', {})).toBeNull();
 	});
 });

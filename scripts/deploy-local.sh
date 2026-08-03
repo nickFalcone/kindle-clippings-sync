@@ -88,7 +88,7 @@ cp main.js manifest.json "$VAULT_PLUGIN/"
 verify_hashes || die "deploy copy failed verification"
 
 echo "Deployed to $VAULT_PLUGIN"
-echo "Reload Obsidian: Cmd+R"
+echo "Reload Obsidian: View > Force Reload"
 
 KINDLE_SYNC="/opt/homebrew/bin/kindle-sync"
 if [ -L "$KINDLE_SYNC" ]; then

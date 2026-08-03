@@ -1,4 +1,4 @@
-import { SyncState, emptySyncState } from './types';
+import { SyncState } from './types';
 
 /**
  * Tracks which clipping hashes have already been written to each book's
@@ -7,13 +7,11 @@ import { SyncState, emptySyncState } from './types';
  * manual edits and deletions in Obsidian are always preserved.
  */
 export class SyncStateStore {
-	private state: SyncState;
 	private sets: Map<string, Set<string>>;
 
 	constructor(state?: SyncState) {
-		this.state = state ?? emptySyncState();
 		this.sets = new Map(
-			Object.entries(this.state.syncedHashes).map(([key, hashes]) => [
+			Object.entries(state?.syncedHashes ?? {}).map(([key, hashes]) => [
 				key,
 				new Set(hashes),
 			]),
@@ -35,7 +33,7 @@ export class SyncStateStore {
 					syncedHashes[key] = value.filter((h) => typeof h === 'string');
 				}
 			}
-			return new SyncStateStore({ version: 1, syncedHashes });
+			return new SyncStateStore({ syncedHashes });
 		}
 		return new SyncStateStore();
 	}
@@ -58,6 +56,6 @@ export class SyncStateStore {
 		for (const [key, set] of this.sets) {
 			syncedHashes[key] = [...set];
 		}
-		return { version: 1, syncedHashes };
+		return { syncedHashes };
 	}
 }

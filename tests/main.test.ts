@@ -359,29 +359,4 @@ Fresh new highlight.
 			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg',
 		);
 	});
-
-	it('inserts a cover into an existing note even when there is nothing new to sync', async () => {
-		const { app, plugin } = await setup();
-		plugin.settings.clippingsPath = '/tmp/kindle/My Clippings.txt';
-		await plugin.syncClippings();
-		expect(app.vault.files.get(FAHRENHEIT)).not.toContain('![book-cover]');
-
-		vi.mocked(readFile).mockImplementation(async (path) => {
-			const p = readPath(path);
-			if (p === '/tmp/kindle/My Clippings.txt') return FIXTURE;
-			if (p === '/tmp/kindle/device-asins.raw.json') {
-				return JSON.stringify([
-					{ label: 'Fahrenheit 451', asin: 'B003GXEW00' },
-				]);
-			}
-			throw new Error(`unexpected read: ${p}`);
-		});
-		plugin.settings.clippingsPath = '/tmp/kindle/My Clippings.txt';
-
-		await plugin.syncClippings();
-
-		expect(app.vault.files.get(FAHRENHEIT)).toContain(
-			'![book-cover](https://m.media-amazon.com/images/P/B003GXEW00.01._SL500_.jpg',
-		);
-	});
 });

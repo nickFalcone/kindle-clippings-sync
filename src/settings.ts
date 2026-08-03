@@ -188,7 +188,7 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Book ASINs file')
 			.setDesc(
-				'Optional JSON file mapping exact clippings book keys to ASINs. Overrides device-asins.raw.json when both are present. When set, newly created notes include a cover image URL (no local image files). Existing notes are never updated.',
+				'Optional JSON file mapping exact clippings book keys to ASINs. Overrides device-asins.raw.json when both are present. Newly created notes include a cover image URL when an ASIN is known (no local image files). Existing notes are never updated.',
 			)
 			.addText((text) =>
 				text

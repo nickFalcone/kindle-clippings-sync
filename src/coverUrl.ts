@@ -36,12 +36,3 @@ export function parseBookAsinsJson(raw: string): Record<string, string> {
 	}
 	return result;
 }
-
-/** Resolve a cover URL for an exact book key, or null when unmapped. */
-export function lookupCoverUrl(
-	bookKey: string,
-	asins: Record<string, string>,
-): string | null {
-	const asin = asins[bookKey];
-	return asin ? coverUrlFromAsin(asin) : null;
-}

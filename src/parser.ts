@@ -66,8 +66,8 @@ const MONTHS: Record<string, number> = {
 
 /**
  * Parse the "Added on ..." value into an ISO local datetime. Kindle firmware
- * has used at least two formats; anything unrecognized returns null and the
- * caller keeps the raw string (fail soft, never throw).
+ * has used at least two formats; anything unrecognized returns null
+ * (fail soft, never throw).
  */
 export function parseKindleDate(raw: string): string | null {
 	// EU/international: "Saturday, 26 March 2016 14:59:39"
@@ -263,12 +263,12 @@ function parseEntry(chunk: string): Clipping | null {
 	// absent, and page may live inside the first segment ("on page 92").
 	let page: string | null = null;
 	let location: string | null = null;
-	let addedAtRaw: string | null = null;
+	let addedAt: string | null = null;
 	for (const seg of metaLine.split('|')) {
 		const trimmed = seg.trim();
 		const added = trimmed.match(/^Added on\s+(.+)$/i);
 		if (added) {
-			addedAtRaw = added[1]!.trim();
+			addedAt = parseKindleDate(added[1]!.trim());
 			continue;
 		}
 		const pageMatch = trimmed.match(/\bpage\s+(.+)$/i);
@@ -291,12 +291,10 @@ function parseEntry(chunk: string): Clipping | null {
 		bookKey,
 		title,
 		authors: parseAuthors(authorRaw),
-		authorRaw,
 		type,
 		page,
 		location,
-		addedAt: addedAtRaw ? parseKindleDate(addedAtRaw) : null,
-		addedAtRaw,
+		addedAt,
 		text,
 		truncated,
 		hash: hashClipping(
