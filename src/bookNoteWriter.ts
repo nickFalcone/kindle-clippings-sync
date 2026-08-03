@@ -22,7 +22,6 @@ export const TEMPLATE = {
 	} satisfies Record<ClippingType, string>,
 	/** Section order in a fresh note and when appending missing sections. */
 	sectionOrder: ['highlight', 'note', 'bookmark'] as ClippingType[],
-	frontmatterTags: ['books'],
 	/** Alt text for the optional cover image rendered after frontmatter. */
 	coverImageAlt: 'book-cover',
 	truncatedLabel:
@@ -68,7 +67,7 @@ function renderFrontmatter(book: Book): string {
 		for (const author of book.authors) lines.push(`  - ${yamlString(author)}`);
 	}
 	lines.push('source: kindle');
-	lines.push(`tags: [${TEMPLATE.frontmatterTags.join(', ')}]`);
+	lines.push('tags: [books]');
 	lines.push('---');
 	return lines.join('\n');
 }
@@ -96,13 +95,16 @@ export function renderClipping(clipping: Clipping): string {
 	return `- ${text}${suffix}`;
 }
 
-function groupByType(clippings: Clipping[]): Map<ClippingType, Clipping[]> {
-	const groups = new Map<ClippingType, Clipping[]>();
-	for (const type of TEMPLATE.sectionOrder) {
-		const members = clippings.filter((c) => c.type === type);
-		if (members.length > 0) groups.set(type, members);
-	}
-	return groups;
+function groupByType(clippings: Clipping[]): [ClippingType, Clipping[]][] {
+	const buckets: Record<ClippingType, Clipping[]> = {
+		highlight: [],
+		note: [],
+		bookmark: [],
+	};
+	for (const c of clippings) buckets[c.type].push(c);
+	return TEMPLATE.sectionOrder
+		.filter((type) => buckets[type].length > 0)
+		.map((type) => [type, buckets[type]]);
 }
 
 /** Build a brand-new note: frontmatter plus one section per clipping type. */
@@ -132,33 +134,6 @@ export function appendToNote(existing: string, clippings: Clipping[]): string {
 		content = insertIntoSection(content, TEMPLATE.headings[type], bullets);
 	}
 	return content;
-}
-
-/**
- * Insert a cover image line after frontmatter when the note has none yet.
- * Existing highlight/note bullets are never touched — only a missing cover line
- * is added, once, so re-sync can enrich notes created before cover support.
- */
-export function insertCoverIfMissing(
-	existing: string,
-	coverUrl: string | null | undefined,
-): string {
-	if (!coverUrl || existing.includes(`![${TEMPLATE.coverImageAlt}]`)) {
-		return existing;
-	}
-	const lines = existing.split('\n');
-	if (lines[0]?.trim() !== '---') return existing;
-	let frontmatterEnd = -1;
-	for (let i = 1; i < lines.length; i++) {
-		if (lines[i]?.trim() === '---') {
-			frontmatterEnd = i;
-			break;
-		}
-	}
-	if (frontmatterEnd === -1) return existing;
-	const coverLine = `![${TEMPLATE.coverImageAlt}](${coverUrl})`;
-	lines.splice(frontmatterEnd + 1, 0, '', coverLine);
-	return lines.join('\n');
 }
 
 function insertIntoSection(

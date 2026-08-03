@@ -47,7 +47,6 @@ describe('parseClippings — entry types', () => {
 		expect(c!.page).toBe('92');
 		expect(c!.location).toBe('1406-1407');
 		expect(c!.addedAt).toBe('2016-03-26T14:59:39');
-		expect(c!.addedAtRaw).toBe('Saturday, 26 March 2016 14:59:39');
 		expect(c!.text).toContain('Perhaps consciousness arises');
 		expect(c!.truncated).toBe(false);
 	});
@@ -95,7 +94,7 @@ describe('parseClippings — metadata variants', () => {
 		expect(c!.location).toBe('512');
 	});
 
-	it('stores the raw string when the date format is unrecognized', () => {
+	it('leaves addedAt null when the date format is unrecognized', () => {
 		const [c] = parseClippings(
 			entry(
 				'Some Ebook (Jane Doe)',
@@ -105,7 +104,6 @@ describe('parseClippings — metadata variants', () => {
 			),
 		);
 		expect(c!.addedAt).toBeNull();
-		expect(c!.addedAtRaw).toBe('2035年1月1日 12:00:00');
 	});
 
 	it('parses the US AM/PM date format', () => {

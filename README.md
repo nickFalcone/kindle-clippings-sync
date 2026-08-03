@@ -116,12 +116,12 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 | Book ASINs file | empty | Optional manual JSON overrides (`bookKey` → ASIN). When unset, the plugin reads `device-asins.raw.json` beside the clippings file (written by `kindle-sync`) |
 | Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
 
-The note template (headings, bullet format, frontmatter tags) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
+The note template (headings, bullet format) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
 
 ### Security & privacy disclosures
 
 - **No network requests.** The plugin and the optional macOS helper script never talk to any server; the plugin has no runtime dependencies and no telemetry.
-- **Cover art URLs.** When an ASIN is known (from `device-asins.raw.json` beside the clippings file, or from the optional Book ASINs file), newly created notes include an absolute `m.media-amazon.com` image URL. The plugin writes the URL only — it does not fetch the image. Obsidian loads the image when you view the note. Sideloaded books without a device ASIN are omitted silently.
+- **Cover art URLs.** When an ASIN is known (from `device-asins.raw.json` beside the clippings file, or from the optional Book ASINs file), newly created notes include an absolute `m.media-amazon.com` image URL. The plugin writes the URL only — it does not fetch the image. Obsidian loads the image when you view the note. Existing notes are never updated; sideloaded books without a device ASIN are omitted silently.
 - **Reads files outside your vault:** the `My Clippings.txt` path you configure, and optionally `device-asins.raw.json` in the same folder (or a manual Book ASINs file). This is why the plugin is desktop-only.
 - **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
 - **The plugin never installs, downloads, or updates anything.** The Homebrew and `mtp-pull` setup in Step 2 is a one-time manual install you run in Terminal yourself; the plugin only ever runs the pre-sync command you configure, and only when you trigger a sync.
@@ -151,9 +151,9 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 - Entries are separated by `==========`. Entry = book line, metadata line, blank line, optional body.
 - Three entry types: `Your Highlight`, `Your Note`, `Your Bookmark` (bookmarks have no body).
 - **Book identity is the exact first line** (e.g. `Fahrenheit 451 (Ray Bradbury)`), sanitized for the filename. No fuzzy title matching — the exact string is the v1 grouping contract.
-- The last parenthetical on the book line is the author string; it's normalized to a list by splitting on `;`, `&`, and `and`, flipping a single `Last, First` comma. The raw string is preserved on every parsed clipping.
+- The last parenthetical on the book line is the author string; it's normalized to a list by splitting on `;`, `&`, and `and`, flipping a single `Last, First` comma.
 - Page (`on page 92`) is optional; many ebooks only have `at location 1406-1407`. Location may be a range or a single number and is stored as written.
-- Two date formats are recognized: `26 March 2016 14:59:39` (international) and `December 30, 2015 7:31:41 PM` (US). Anything else fails soft — the raw string is kept and the parsed date is null. The parser never throws on malformed entries; it skips them.
+- Two date formats are recognized: `26 March 2016 14:59:39` (international) and `December 30, 2015 7:31:41 PM` (US). Anything else fails soft — `addedAt` is null. The parser never throws on malformed entries; it skips them.
 - Multi-line (paragraph) highlight bodies are preserved and rendered as an indented single bullet.
 - A leading UTF-8 BOM and CRLF line endings are both handled (both vary across Kindle firmware).
 - **Clipping limit:** for DRM-limited books Kindle writes `<You have reached the clipping limit for this item>` instead of the text. These are surfaced as a visible `**[Clipping limit reached — …]**` stub bullet (toggleable), never silently dropped.
@@ -164,7 +164,7 @@ The parser (`src/parser.ts`, pure function, fully unit-tested) bakes in these ob
 Newer Kindle firmware replaced USB Mass Storage with MTP, which macOS cannot mount — the device never appears in Finder. Two helpers in `scripts/` bridge this:
 
 - `mtp-pull.c` — small C tool (libusb + libmtp) that looks up and fetches one file by name in a **single MTP session**, with a USB device reset fallback. The stock libmtp CLIs need two sessions (list, then fetch), which Kindles intermittently refuse — and `mtp-getfile` exits 0 even on failure. Build: see the comment in the file.
-- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), and writes `device-asins.raw.json` beside it (ASINs scraped from `.sdr` sidecar folder names in the same MTP session). Set it as the plugin's **Pre-sync command** (full path, e.g. `/opt/homebrew/bin/kindle-sync`); Obsidian runs the sync after the pull. Env override: `KINDLE_CLIPPINGS_DEST` for where the file lands (default `~/Kindle/My Clippings.txt`); `KINDLE_DEVICE_ASINS_DEST` for the sidecar list (default `device-asins.raw.json` in the same folder). Rebuild `mtp-pull` after updating `scripts/mtp-pull.c` — see the build comment in that file.
+- `kindle-sync.sh` — quits OpenMTP if running, pulls `My Clippings.txt` to a local path (atomic write, never clobbers the previous copy on failure), and writes `device-asins.raw.json` beside it (ASINs scraped from book/sidecar folder names in the same MTP session). Set it as the plugin's **Pre-sync command** (full path, e.g. `/opt/homebrew/bin/kindle-sync`); Obsidian runs the sync after the pull. Env override: `KINDLE_CLIPPINGS_DEST` for where the file lands (default `~/Kindle/My Clippings.txt`); `KINDLE_DEVICE_ASINS_DEST` for the sidecar list (default `device-asins.raw.json` in the same folder). Rebuild `mtp-pull` after updating `scripts/mtp-pull.c` — see the build comment in that file.
 
 **Hardware quirk (observed on a Paperwhite Signature Edition):** the Kindle drops off the USB bus entirely a short while after being plugged in — after that, nothing can reach it until you replug. Run the sync soon after connecting the device. If you get "no MTP device found", replug and retry.
 

@@ -22,7 +22,7 @@ npm run pre-pr  # deploy + lint — run before opening a PR
 
 1. **Append-only output.** The plugin never rewrites, deletes, or reconciles content already written to a note. "Already synced" is decided solely by the hash set in `SyncStateStore` (persisted in the plugin's `data.json`) — never by re-reading note content. Users' manual edits and deletions are sacred.
 2. **Book identity is the exact first line** of a clippings entry (sanitized for filenames). No fuzzy matching.
-3. **The parser never throws** on malformed input: bad entries are skipped, unparseable dates keep the raw string (`addedAtRaw`).
+3. **The parser never throws** on malformed input: bad entries are skipped, unparseable dates leave `addedAt` null.
 4. **Draft collapse** (`collapseDrafts` in parser.ts): the clippings file journals every on-device highlight-resize/note-edit as a new entry with overlapping location ranges; same-book/same-type overlapping ranges collapse to the latest draft. Verified against real hardware — don't "simplify" it to exact-location matching (draft ranges differ: 238-238 vs 238-240).
 5. The BOM strip in parser.ts must stay written as the `﻿` escape — a literal BOM character in the source breaks grep/tooling.
 6. `manifest.json` `minAppVersion` is 1.4.0 because `Vault.createFolder` requires it (enforced by eslint-plugin-obsidianmd).
@@ -39,7 +39,7 @@ See [LOCAL-DEV.md](LOCAL-DEV.md) — live vault paths, deploy steps, version-fil
 
 ## scripts/ — macOS MTP helpers
 
-Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. An optional third argument writes `device-asins.raw.json` (ASINs from `.sdr` folder names in the same listing pass). `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
+Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. An optional third argument writes `device-asins.raw.json` (ASINs from book/sidecar folder names in the same listing pass). `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
 
 ## Testing conventions
 

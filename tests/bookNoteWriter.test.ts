@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	appendToNote,
 	buildNewNote,
-	insertCoverIfMissing,
 	renderClipping,
 	sanitizeFilename,
 } from '../src/bookNoteWriter';
@@ -14,12 +13,10 @@ function makeClipping(overrides: Partial<Clipping> = {}): Clipping {
 		bookKey: 'Fahrenheit 451 (Ray Bradbury)',
 		title: 'Fahrenheit 451',
 		authors: ['Ray Bradbury'],
-		authorRaw: 'Ray Bradbury',
 		type: 'highlight' as ClippingType,
 		page: '92' as string | null,
 		location: '1406-1407' as string | null,
 		addedAt: '2016-03-26T14:59:39' as string | null,
-		addedAtRaw: 'Saturday, 26 March 2016 14:59:39' as string | null,
 		text: 'It was a pleasure to burn.',
 		truncated: false,
 		...overrides,
@@ -284,42 +281,5 @@ describe('appendToNote — idempotent append-only semantics', () => {
 		const result = appendToNote(existing, [added]);
 		expect(result).not.toMatch(/!\[book-cover\]/);
 		expect(result).not.toContain('media-amazon.com');
-	});
-});
-
-describe('insertCoverIfMissing', () => {
-	const coverUrl =
-		'https://m.media-amazon.com/images/P/B0DQLMS9VG.01._SL500_.jpg';
-	const existing = [
-		'---',
-		'title: "Fahrenheit 451"',
-		'source: kindle',
-		'---',
-		'',
-		'## Highlights',
-		'',
-		'- It was a pleasure to burn. (Page 92, Location 1406-1407)',
-		'',
-		'My own commentary paragraph that must survive syncs.',
-		'',
-	].join('\n');
-
-	it('inserts a cover line after frontmatter when absent', () => {
-		const result = insertCoverIfMissing(existing, coverUrl);
-		expect(result).toContain(`![book-cover](${coverUrl})`);
-		const fmEnd = result.indexOf('---', 4);
-		const coverIdx = result.indexOf('![book-cover]');
-		expect(coverIdx).toBeGreaterThan(fmEnd);
-		expect(result).toContain('My own commentary paragraph that must survive syncs.');
-	});
-
-	it('is a no-op when a cover is already present', () => {
-		const withCover = insertCoverIfMissing(existing, coverUrl);
-		expect(insertCoverIfMissing(withCover, coverUrl)).toBe(withCover);
-		expect(withCover.match(/!\[book-cover\]/g)).toHaveLength(1);
-	});
-
-	it('is a no-op when coverUrl is null', () => {
-		expect(insertCoverIfMissing(existing, null)).toBe(existing);
 	});
 });
