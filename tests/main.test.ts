@@ -145,6 +145,66 @@ Fresh new highlight.
 		expect(notices.at(-1)).toBe('Kindle sync: nothing new.');
 	});
 
+	it('keeps macOS machine paths when Windows saves, and vice versa', async () => {
+		const macLegacy = {
+			settings: {
+				clippingsPath: '/Users/nfalcone/Kindle/My Clippings.txt',
+				targetFolder: 'Reference/Books',
+				includeNotes: true,
+				includeBookmarks: false,
+				includeTruncated: true,
+				preSyncCommand: '/opt/homebrew/bin/kindle-sync --pull-only',
+				approvedPreSyncCommand: '/opt/homebrew/bin/kindle-sync --pull-only',
+				bookAsinsPath: '',
+			},
+			syncState: { syncedHashes: {} },
+		};
+
+		const app = new App();
+		const windows = makePlugin(app);
+		windows.hostPlatform = 'win32';
+		await windows.saveData(macLegacy);
+		await windows.loadPersisted();
+
+		expect(windows.settings.clippingsPath).toBe('');
+		expect(windows.settings.preSyncCommand).toBe('');
+		expect(windows.settings.targetFolder).toBe('Reference/Books');
+
+		windows.settings.clippingsPath = 'C:\\Users\\nicho\\Kindle\\My Clippings.txt';
+		windows.settings.preSyncCommand = '%USERPROFILE%\\Kindle\\kindle-sync.cmd';
+		windows.settings.includeNotes = false;
+		await windows.saveSettings();
+
+		const mac = makePlugin(app);
+		mac.hostPlatform = 'darwin';
+		await mac.saveData(await windows.loadData());
+		await mac.loadPersisted();
+
+		expect(mac.settings.clippingsPath).toBe(
+			'/Users/nfalcone/Kindle/My Clippings.txt',
+		);
+		expect(mac.settings.preSyncCommand).toBe(
+			'/opt/homebrew/bin/kindle-sync --pull-only',
+		);
+		expect(mac.settings.includeNotes).toBe(false);
+
+		mac.settings.preSyncCommand = '/opt/homebrew/bin/kindle-sync';
+		mac.settings.approvedPreSyncCommand = '/opt/homebrew/bin/kindle-sync';
+		await mac.saveSettings();
+
+		const windowsAgain = makePlugin(app);
+		windowsAgain.hostPlatform = 'win32';
+		await windowsAgain.saveData(await mac.loadData());
+		await windowsAgain.loadPersisted();
+
+		expect(windowsAgain.settings.clippingsPath).toBe(
+			'C:\\Users\\nicho\\Kindle\\My Clippings.txt',
+		);
+		expect(windowsAgain.settings.preSyncCommand).toBe(
+			'%USERPROFILE%\\Kindle\\kindle-sync.cmd',
+		);
+	});
+
 	it('preserves manual edits and deletions, appending only the delta', async () => {
 		const { app, plugin } = await setup();
 		await plugin.syncClippings();

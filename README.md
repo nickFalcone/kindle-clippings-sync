@@ -4,11 +4,11 @@ An [Obsidian](https://obsidian.md/) plugin that imports highlights, notes, and b
 
 A free, local alternative to paid highlight-sync services for the "physical Kindle over USB" use case. The plugin makes **no network requests** and has **zero runtime dependencies** — everything happens between the file you point it at and your vault.
 
-**Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched the final highlight state shown on the device.
+**Status:** field-verified end-to-end (2026-07-10) on a Kindle Paperwhite Signature Edition under macOS — full 13-book import, no-op re-sync, delta append of new highlights, and a full delete-and-reimport with draft collapse whose per-book output matched the final highlight state shown on the device. The same device on Windows (2026-08-16) pulled via `kindle-sync.cmd` and delta-appended new highlights without rewriting existing notes.
 
 ## What it does
 
-- Reads `My Clippings.txt` from a USB-connected Kindle — or any local copy of it (path set in settings, with a native Browse dialog). On modern MTP-only Kindles the file is pulled to a local path first; see "MTP Kindles on macOS" below.
+- Reads `My Clippings.txt` from a USB-connected Kindle — or any local copy of it (path set in settings, with a native Browse dialog). On modern MTP-only Kindles the file is pulled to a local path first; see the macOS and Windows MTP sections below.
 - Parses all highlights, notes, and bookmarks; groups them by book.
 - Writes one Markdown note per book (default folder: `Reference/Books`) with YAML frontmatter:
 
@@ -38,20 +38,24 @@ Trigger a sync via the command palette ("Sync Kindle highlights"), the ribbon bo
 
 Four differences, each a consequence of the design goals above rather than a feature gap:
 
-- **It can read a Kindle that macOS won't mount.** The usual approaches either look for `My Clippings.txt` on a mounted volume or ask you to pick the file yourself. On firmware 5.16.2+ the device never mounts (see "MTP Kindles on macOS" below), so there is no volume to search and no file to pick. The pre-sync command hook exists to fetch the file off the device first, which is what makes those Kindles work at all.
+- **It can read a Kindle that the OS won't mount as a drive.** The usual approaches either look for `My Clippings.txt` on a mounted volume or ask you to pick the file yourself. On firmware 5.16.2+ the device is MTP-only: it never mounts on macOS, and on Windows it appears under This PC rather than as a drive letter. The pre-sync command hook exists to fetch the file off the device first.
 - **It reads the device's own file rather than a per-book export.** The other common input is the HTML notebook you export and email yourself from the Kindle app, one book at a time. `My Clippings.txt` carries every book on the device in a single file, including sideloaded titles and personal documents.
 - **It writes nothing into your notes to keep track of state.** There are no sentinel comments and no marker-delimited region that the plugin owns and rewrites. What has already been synced is a hash set in the plugin's own `data.json`, so it never parses a note back to learn what it did, and never has to judge whether rewriting part of your file is safe.
 - **It collapses on-device edit drafts.** Resizing a highlight or editing a note appends a new entry with an overlapping location range instead of updating the original, so a highlight you adjusted three times is in the file three times. Identity based on location or timestamp treats each of those as a separate highlight; this parser merges them down to the final on-device state (see "Duplicates & edit drafts" below).
 
 ## Daily use (after setup)
 
-1. Plug the Kindle into your Mac with a USB cable. If the Kindle shows a "connect to computer" prompt, tap to accept it.
+1. Plug the Kindle in with a USB cable. If the Kindle shows a "connect to computer" prompt, tap to accept it.
 2. **Right away**, click the book icon in Obsidian's left sidebar (Kindles quietly disconnect themselves a minute or so after being plugged in — if you waited too long, unplug, replug, and click again).
 3. A notification tells you what happened: "added N clippings across M books", or "nothing new". That's it — new highlights are appended to each book's note; everything you've edited or deleted in those notes is left alone.
 
 ## Setup
 
-Desktop only — the plugin reads a file outside your vault. The plugin has nothing platform-specific in it and should work on Windows and Linux, but **so far it has only been tested on macOS** — reports welcome. The automatic USB fetch helper below is macOS-only (on other platforms, copy `My Clippings.txt` to your computer yourself and point the plugin at that copy).
+Desktop only — the plugin reads a file outside your vault. Obsidian must be the macOS or Windows desktop app (not mobile, and not a Linux/WSL copy of Obsidian even if you build the plugin from WSL).
+
+The clippings path and pre-sync command are stored **per OS** (`darwin` / `win32` / `linux`), not per machine. A Mac and a Windows PC sharing one vault — iCloud, Obsidian Sync, or any other folder sync — keep separate helper paths, while sync state and note-format toggles stay shared. Two computers on the **same** OS share those path settings, so prefer `~/Kindle/...` or `%USERPROFILE%\Kindle\...` over a hardcoded username.
+
+The helper writes `My Clippings.txt` to a local folder **outside the vault** (`~/Kindle` or `%USERPROFILE%\Kindle`). That copy is not synced; each computer pulls its own. The plugin's `data.json` *is* in the vault and does sync — that is how the other machine knows what was already imported. Don't copy `data.json` by hand and don't delete it unless you also delete the generated notes.
 
 ### Step 1 — install the plugin into Obsidian
 
@@ -92,15 +96,27 @@ ln -sf ~/kindle-clippings-sync/scripts/kindle-sync.sh /opt/homebrew/bin/kindle-s
 
 (If you already cloned the repo in Step 1, reuse that folder instead of cloning again.)
 
+### Step 2 (Windows) — one-time USB helper setup
+
+Windows can see an MTP Kindle under This PC, but the file is not on a drive letter, so the plugin cannot browse to it directly. A small helper copies `My Clippings.txt` to `%USERPROFILE%\Kindle\` before each sync. WSL is not required to *use* the plugin; it is only an optional way to copy the helper if you develop from WSL (see [LOCAL-DEV.md](LOCAL-DEV.md)).
+
+From PowerShell, in the repo:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1
+```
+
 ### Step 3 — point the plugin at your highlights
 
-In Obsidian → Settings → Kindle Clippings Sync:
+In Obsidian → Settings → Kindle Clippings Sync. Path and pre-sync command are per OS; fill in the row for the machine you are on. The first time you open settings on a new OS they will look empty even if the other machine is already configured — that is expected.
 
-| Setting | What to enter |
-| --- | --- |
-| Path to `My Clippings.txt` | Modern Kindle on a Mac: `/Users/YOURNAME/Kindle/My Clippings.txt` (the helper puts it there). Older Kindle that appears in Finder: browse to `documents/My Clippings.txt` on the device. |
-| Pre-sync command | Modern Kindle on a Mac: `/opt/homebrew/bin/kindle-sync`. Otherwise: leave empty. |
-| Book notes folder | Wherever you want the book notes, e.g. `Reference/Books`. |
+| Setting | macOS | Windows |
+| --- | --- | --- |
+| Path to `My Clippings.txt` | `~/Kindle/My Clippings.txt` | `%USERPROFILE%\Kindle\My Clippings.txt` |
+| Pre-sync command | `/opt/homebrew/bin/kindle-sync` | `"%USERPROFILE%\Kindle\kindle-sync.cmd"` |
+| Book notes folder | Wherever you want the book notes, e.g. `Reference/Books` (shared) | same |
+
+Older Kindles that appear as a drive letter: browse to `documents/My Clippings.txt` on the device and leave pre-sync empty. Linux: copy `My Clippings.txt` to a local path yourself and leave pre-sync empty; no helper is shipped yet.
 
 Now plug in your Kindle and click the book icon — see "Daily use" above.
 
@@ -108,28 +124,28 @@ Now plug in your Kindle and click the book icon — see "Daily use" above.
 
 | Setting | Default | Notes |
 | --- | --- | --- |
-| Path to `My Clippings.txt` | — | Text field + Browse button |
-| Book notes folder | `Reference/Books` | Created if missing |
-| Include notes | on | Your own Kindle annotations |
-| Include bookmarks | off | Bookmarks have no text |
-| Include clipping-limit stubs | on | See "Clipping limit" below |
-| Book ASINs file | empty | Optional manual JSON overrides (`bookKey` → ASIN). When unset, the plugin reads `device-asins.raw.json` beside the clippings file (written by `kindle-sync`) |
-| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below |
+| Path to `My Clippings.txt` | — | Text field + Browse button. **Per OS** — a Mac path is not used on Windows and vice versa. |
+| Book notes folder | `Reference/Books` | Created if missing. Shared across machines. |
+| Include notes | on | Your own Kindle annotations. Shared. |
+| Include bookmarks | off | Bookmarks have no text. Shared. |
+| Include clipping-limit stubs | on | See "Clipping limit" below. Shared. |
+| Book ASINs file | empty | Optional manual JSON overrides (`bookKey` → ASIN). When unset, the plugin reads `device-asins.raw.json` beside the clippings file (written by `kindle-sync`). Per OS. |
+| Pre-sync command | empty | Optional shell command run before each sync (e.g. `kindle-sync` to pull the file off an MTP Kindle); sync aborts if it fails. Gated by a confirmation prompt — see below. **Per OS.** |
 
 The note template (headings, bullet format) lives in one place in code: `TEMPLATE` in `src/bookNoteWriter.ts`.
 
 ### Security & privacy disclosures
 
-- **No network requests.** The plugin and the optional macOS helper script never talk to any server; the plugin has no runtime dependencies and no telemetry.
+- **No network requests.** The plugin and the optional macOS/Windows helper scripts never talk to any server; the plugin has no runtime dependencies and no telemetry.
 - **Cover art URLs.** When an ASIN is known (from `device-asins.raw.json` beside the clippings file, or from the optional Book ASINs file), newly created notes include an absolute `m.media-amazon.com` image URL. The plugin writes the URL only — it does not fetch the image. Obsidian loads the image when you view the note. Existing notes are never updated; sideloaded books without a device ASIN are omitted silently.
 - **Reads files outside your vault:** the `My Clippings.txt` path you configure, and optionally `device-asins.raw.json` in the same folder (or a manual Book ASINs file). This is why the plugin is desktop-only.
 - **The Browse button uses Electron's native file dialog** (probed defensively; if unavailable, you type the path instead).
-- **The plugin never installs, downloads, or updates anything.** The Homebrew and `mtp-pull` setup in Step 2 is a one-time manual install you run in Terminal yourself; the plugin only ever runs the pre-sync command you configure, and only when you trigger a sync.
+- **The plugin never installs, downloads, or updates anything.** The Homebrew/`mtp-pull` setup (macOS) and `install-windows.ps1` (Windows) in Step 2 are one-time manual installs you run yourself; the plugin only ever runs the pre-sync command you configure, and only when you trigger a sync.
 - **The optional pre-sync command executes a shell command you wrote yourself**, gated as described below.
 
 ### Security: why a shell-command setting exists, and how it's gated
 
-MTP-only Kindles can't be read from inside Obsidian — fetching `My Clippings.txt` requires a helper that runs outside the app (see "MTP Kindles on macOS" below). The pre-sync command is the hook for that helper. Since it is by nature an arbitrary shell command, it is scoped and gated:
+MTP-only Kindles can't be read from inside Obsidian — fetching `My Clippings.txt` requires a helper that runs outside the app (see the macOS and Windows MTP sections below). The pre-sync command is the hook for that helper. Since it is by nature an arbitrary shell command, it is scoped and gated:
 
 - It only runs when **you** trigger a sync — never in the background — and the sync aborts if it fails.
 - Before a command string runs for the first time, the plugin displays it and asks for confirmation. Approval applies to that **exact string**; if the setting changes in any way, you're asked again before the next sync.
@@ -168,11 +184,20 @@ Newer Kindle firmware replaced USB Mass Storage with MTP, which macOS cannot mou
 
 **Hardware quirk (observed on a Paperwhite Signature Edition):** the Kindle drops off the USB bus entirely a short while after being plugged in — after that, nothing can reach it until you replug. Run the sync soon after connecting the device. If you get "no MTP device found", replug and retry.
 
+## MTP Kindles on Windows (firmware 5.16.2+)
+
+Windows shows the Kindle under This PC as a portable device, not as a drive letter, so the plugin still cannot open `My Clippings.txt` in place. `scripts/kindle-sync.ps1` (installed as `%USERPROFILE%\Kindle\kindle-sync.cmd`) copies the file locally first: it tries a removable drive letter if the Kindle still mounts that way, then falls back to the Shell.Application MTP copy. It also writes `device-asins.raw.json` beside the clippings file. Env overrides are the same as the macOS helper (`KINDLE_CLIPPINGS_DEST`, `KINDLE_DEVICE_ASINS_DEST`).
+
+One-time install: `scripts/install-windows.ps1`. Set the plugin's pre-sync command to `"%USERPROFILE%\Kindle\kindle-sync.cmd"`. (From WSL, `scripts/install-windows.sh` copies the same files into your Windows home directory; Obsidian still has to be the Windows app.)
+
+The same USB drop-off quirk applies; plug in and sync promptly. Field-verified (2026-08-16) on the same Paperwhite Signature Edition: pull + delta append, existing notes left intact.
+
 ## Known limitations / untested edge cases
 
 - **Editing a highlight/note on-device *after* it has already been synced:** the append-on-edit behavior predicted in the original spec was **confirmed on real hardware** (highlight-resize drafts observed in a real clippings file) and is handled by the parser's draft collapse — but only for drafts that exist *before* a sync. If you sync, then edit that highlight on the Kindle, the next sync appends the new version as a second bullet: the old bullet is never rewritten or removed, because output is strictly append-only and replacing prior lines risks clobbering adjacent manual edits. Delete the stale bullet by hand if it bothers you (it stays deleted). See the comment on `hashClipping` in `src/parser.ts`.
 - No deep links back to the Kindle: `My Clippings.txt` contains no ASIN, which such links require. (Amazon's cloud notebook would expose ASIN — that's the deferred phase-2 wireless path, along with its credential-storage and scraping-fragility tradeoffs.)
 - Wireless/cloud sync is explicitly out of scope for v1; the parser is deliberately decoupled from file acquisition so an `AmazonCloudSource` could feed it later without a rewrite.
+- Path settings are per OS, not per hostname: a second Mac would reuse the first Mac's clippings path and pre-sync command. Home-relative paths (`~/Kindle`, `%USERPROFILE%\Kindle`) keep that working when usernames differ.
 
 ## Development
 
@@ -185,7 +210,7 @@ npm run lint
 
 `src/parser.ts`, `src/bookNoteWriter.ts`, and `src/syncState.ts` are pure (no Obsidian API) and covered by tests in `tests/`, including end-to-end pipeline tests for the idempotency and edit-preservation guarantees. `src/main.ts` and `src/settings.ts` are the thin Obsidian-facing layer.
 
-Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Clippings-format samples from other Kindle models and Windows/Linux test reports are especially useful.
+Contributions welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Clippings-format samples from other Kindle models and Linux test reports are especially useful. Maintainer vault paths, WSL deploy, and the live iCloud `kb` install live in [LOCAL-DEV.md](LOCAL-DEV.md), not here.
 
 ## License and credits
 

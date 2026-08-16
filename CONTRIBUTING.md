@@ -16,7 +16,7 @@ The most valuable bug reports include:
 - Your **Kindle model and firmware version**, and your OS.
 - What the plugin did vs. what you expected.
 
-**Windows and Linux reports are especially welcome.** The plugin should work there but has only been field-tested on macOS as of v0.1.0.
+**Linux reports are especially welcome.** macOS and Windows are field-tested on a Paperwhite Signature Edition (Windows: USB helper pull + delta append). Linux has no helper — copy `My Clippings.txt` locally and point the plugin at it.
 
 **Security issues:** please use [GitHub private vulnerability reporting](https://github.com/nickFalcone/kindle-clippings-sync/security/advisories/new) instead of a public issue.
 

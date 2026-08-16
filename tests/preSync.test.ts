@@ -211,9 +211,17 @@ describe('pre-sync command — consent gate', () => {
 		await pending;
 
 		const persisted = (await plugin.loadData()) as {
-			settings: { approvedPreSyncCommand: string };
+			settings: {
+				platforms?: Record<
+					string,
+					{ approvedPreSyncCommand?: string }
+				>;
+			};
 		};
-		expect(persisted.settings.approvedPreSyncCommand).toBe(COMMAND);
+		expect(
+			persisted.settings.platforms?.[plugin.hostPlatform]
+				?.approvedPreSyncCommand,
+		).toBe(COMMAND);
 
 		// A fresh instance rehydrating from that data must run without asking.
 		const revived = makePlugin(app);
