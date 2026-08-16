@@ -12,10 +12,10 @@ import { readFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { exec, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
+import { expandUserPath } from './expandPath';
 
 const execAsync = promisify(exec);
 import {
-	DEFAULT_SETTINGS,
 	KindleClippingsSettings,
 	KindleClippingsSettingTab,
 	SYNC_COMMAND_LABEL,
@@ -27,17 +27,28 @@ import {
 	matchBookKeysToAsins,
 	parseDeviceAsinsJson,
 } from './deviceAsins';
+import {
+	persistSettings,
+	resolveSettings,
+	type PersistedSettings,
+} from './settingsPersist';
 import { SyncStateStore } from './syncState';
 import { Clipping } from './types';
 
 interface PersistedData {
-	settings?: Partial<KindleClippingsSettings>;
+	settings?: PersistedSettings;
 	syncState?: unknown;
 }
 
 export default class KindleClippingsSyncPlugin extends Plugin {
 	settings!: KindleClippingsSettings;
 	syncState!: SyncStateStore;
+	/**
+	 * Node platform id (`darwin` / `win32` / `linux`). Tests override this so
+	 * per-machine path settings can be asserted without stubbing `process`.
+	 */
+	hostPlatform: string = process.platform;
+	private persistedSettings: PersistedSettings | undefined;
 	private syncing = false;
 	private unloaded = false;
 	private preSyncChild: ChildProcess | null = null;
@@ -72,13 +83,20 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 
 	async loadPersisted() {
 		const data = ((await this.loadData()) ?? {}) as PersistedData;
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings);
+		this.persistedSettings = data.settings;
+		this.settings = resolveSettings(data.settings, this.hostPlatform);
 		this.syncState = SyncStateStore.fromData(data.syncState);
 	}
 
 	async saveSettings() {
+		const settings = persistSettings(
+			this.settings,
+			this.hostPlatform,
+			this.persistedSettings,
+		);
+		this.persistedSettings = settings;
 		const data: PersistedData = {
-			settings: this.settings,
+			settings,
 			syncState: this.syncState.toJSON(),
 		};
 		await this.saveData(data);
@@ -115,7 +133,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 	}
 
 	private async doSync(): Promise<void> {
-		const path = this.settings.clippingsPath.trim();
+		const path = expandUserPath(this.settings.clippingsPath);
 		if (!path) {
 			new Notice(
 				'Set the path to My Clippings.txt in the Kindle Clippings Sync settings first.',
@@ -141,7 +159,9 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 			}
 			new Notice('Kindle sync: running pre-sync command…');
 			try {
-				const pending = execAsync(preSync, { timeout: 120_000 });
+				const pending = execAsync(expandUserPath(preSync), {
+					timeout: 120_000,
+				});
 				this.preSyncChild = pending.child;
 				await pending;
 			} catch (error) {
@@ -236,7 +256,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 	): Promise<Record<string, string>> {
 		let result: Record<string, string> = {};
 
-		const clippingsPath = this.settings.clippingsPath.trim();
+		const clippingsPath = expandUserPath(this.settings.clippingsPath);
 		if (clippingsPath) {
 			const devicePath = join(
 				dirname(clippingsPath),
@@ -253,7 +273,7 @@ export default class KindleClippingsSyncPlugin extends Plugin {
 			}
 		}
 
-		const manualPath = this.settings.bookAsinsPath.trim();
+		const manualPath = expandUserPath(this.settings.bookAsinsPath);
 		if (manualPath) {
 			try {
 				const raw = await readFile(manualPath, 'utf8');

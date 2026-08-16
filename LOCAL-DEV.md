@@ -9,10 +9,11 @@ For public releases (version bumps, tags, CI), see [RELEASE.md](RELEASE.md).
 
 | What                           | Path                                                                                                  |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Obsidian plugin folder         | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/` |
-| `kindle-sync` helper (symlink) | `/opt/homebrew/bin/kindle-sync` → `~/kindle-clippings-sync/scripts/kindle-sync.sh` (see README setup; point at your clone) |
+| Obsidian plugin folder (macOS) | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/` |
+| Obsidian plugin folder (WSL)   | `/mnt/c/Users/nicho/iCloudDrive/iCloud~md~obsidian/kb/.obsidian/plugins/kindle-clippings-sync/`        |
+| `kindle-sync` helper (symlink) | `/opt/homebrew/bin/kindle-sync` → clone `scripts/kindle-sync.sh` (macOS). Windows: `scripts/install-windows.sh` → `%USERPROFILE%\Kindle\kindle-sync.cmd`. |
 | `mtp-pull` binary              | `/opt/homebrew/bin/mtp-pull` (built from `scripts/mtp-pull.c`)                                        |
-| Default clippings destination  | `~/Kindle/My Clippings.txt`                                                                           |
+| Default clippings destination  | `~/Kindle/My Clippings.txt` (macOS). `%USERPROFILE%\Kindle\My Clippings.txt` (Windows, written by `kindle-sync.cmd`). |
 
 
 
@@ -41,7 +42,7 @@ npm run pre-pr          # same + lint — run before opening a PR
 npm run verify:deploy   # hash-check only (no build/deploy)
 ```
 
-After deploy, reload Obsidian: **Cmd+R**.
+After deploy, reload Obsidian: **Cmd+R** (macOS) or **Ctrl+R** (Windows).
 
 Manual equivalent:
 
@@ -53,7 +54,7 @@ cp main.js manifest.json "$VAULT_PLUGIN/"
 shasum -a 256 main.js "$VAULT_PLUGIN/main.js"   # hashes must match
 ```
 
-Implemented by `scripts/deploy-local.sh`. Override the vault path with `VAULT_PLUGIN=... npm run deploy` on another machine.
+Implemented by `scripts/deploy-local.sh`. It picks the first existing live plugin folder (macOS iCloud path, then the WSL/Windows iCloud path). Override with `VAULT_PLUGIN=... npm run deploy` on another machine.
 
 **Never copy `data.json`.** It holds live sync state (`syncState.syncedHashes`). Overwriting it makes the next sync treat everything as new and re-append all clippings. The deploy script never touches it.
 
@@ -72,13 +73,15 @@ shasum -a 256 main.js \
   "$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync/main.js"
 ```
 
-Matching SHA-256 hashes = Obsidian is running exactly what you just built. Mismatch = run `npm run deploy`, then Cmd+R.
+Matching SHA-256 hashes = Obsidian is running exactly what you just built. Mismatch = run `npm run deploy`, then Cmd+R / Ctrl+R.
 
 Uncommitted working-tree changes are what get built; `main.js` reflects your local tree, not necessarily what's on GitHub `main`.
 
 The `kindle-sync` shell helper is already live when symlinked to the repo — no separate deploy step for script-only changes under `scripts/`.
 
 ## End-to-end test (MTP Kindle)
+
+### macOS
 
 1. Plug Kindle in; accept "connect to computer" if prompted.
 2. Cmd+R in Obsidian if you just deployed.
@@ -93,12 +96,35 @@ Optional pull-only check in Terminal (no Obsidian needed):
 
 Expected: fetch + byte count; no network calls, no REST API messages.
 
+### Windows (from WSL)
+
+The USB helper lives in `scripts/kindle-sync.ps1`. Install it once, then Obsidian on Windows can pull the file the same way the Mac does.
+
+```bash
+bash scripts/install-windows.sh
+npm run deploy
+```
+
+1. In Windows Obsidian: **Ctrl+R**.
+2. Settings → Kindle Clippings Sync — these two fields are empty the first time you open the new build on Windows (the Mac values stay on the Mac). Set:
+
+   - Path: `%USERPROFILE%\Kindle\My Clippings.txt`
+   - Pre-sync: `"%USERPROFILE%\Kindle\kindle-sync.cmd"`
+
+3. Plug in the Kindle, click the book ribbon icon, approve the pre-sync command when asked.
+
+Shared iCloud `data.json` now stores those paths under `settings.platforms.win32` and keeps `platforms.darwin` for the Mac. Sync hashes stay shared, so Windows will not re-append clippings the Mac already imported.
+
 ## Pre-sync command setting
 
-Recommended value in plugin settings:
+Recommended value in plugin settings on macOS:
 
 ```
 /opt/homebrew/bin/kindle-sync
 ```
+
+On Windows, `"%USERPROFILE%\Kindle\kindle-sync.cmd"` (after `scripts/install-windows.ps1` or `scripts/install-windows.sh`).
+
+On Windows/Linux without the helper, leave it empty.
 
 Legacy `--pull-only` suffix is harmless (ignored) if still present in `data.json`.

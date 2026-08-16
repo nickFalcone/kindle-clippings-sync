@@ -37,9 +37,11 @@ npm run pre-pr  # deploy + lint — run before opening a PR
 
 See [LOCAL-DEV.md](LOCAL-DEV.md) — live vault paths, deploy steps, version-file semantics, and how to verify Obsidian is running the build you just made (hash check; don't trust the Settings version label during dev). **Never overwrite the vault's `data.json`.**
 
-## scripts/ — macOS MTP helpers
+## scripts/ — USB helpers
 
 Modern Kindles (firmware 5.16.2+) use MTP; macOS can't mount them. `mtp-pull.c` (installed at `/opt/homebrew/bin/mtp-pull`) fetches `My Clippings.txt` in a **single MTP session** — Kindles intermittently refuse a second session, and the stock `mtp-getfile` exits 0 on failure, so don't replace it with libmtp's CLI tools. It includes a libusb reset fallback. An optional third argument writes `device-asins.raw.json` (ASINs from book/sidecar folder names in the same listing pass). `kindle-sync.sh` wraps it as the plugin's pre-sync command (pull only; Obsidian runs the sync). Hardware quirk: the Kindle drops off the USB bus entirely a short while after plug-in; nothing can reach it until replugged — this is not a bug in the scripts.
+
+Windows: `kindle-sync.ps1` / `kindle-sync.cmd` do the same pull via drive-letter mass storage if present, otherwise Shell.Application MTP. Install with `scripts/install-windows.sh` (WSL) or `scripts/install-windows.ps1`. Default dest is `%USERPROFILE%\Kindle\My Clippings.txt`. The plugin stores that path and the pre-sync command per OS in `data.json` (`settings.platforms`) so a shared vault does not clobber the Mac helper.
 
 ## Testing conventions
 

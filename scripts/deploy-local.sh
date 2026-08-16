@@ -4,7 +4,17 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VAULT_PLUGIN="${VAULT_PLUGIN:-$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync}"
+MAC_VAULT_PLUGIN="$HOME/Library/Mobile Documents/iCloud~md~obsidian/Documents/kb/.obsidian/plugins/kindle-clippings-sync"
+WIN_WSL_VAULT_PLUGIN="/mnt/c/Users/nicho/iCloudDrive/iCloud~md~obsidian/kb/.obsidian/plugins/kindle-clippings-sync"
+if [ -z "${VAULT_PLUGIN:-}" ]; then
+	if [ -d "$MAC_VAULT_PLUGIN" ]; then
+		VAULT_PLUGIN="$MAC_VAULT_PLUGIN"
+	elif [ -d "$WIN_WSL_VAULT_PLUGIN" ]; then
+		VAULT_PLUGIN="$WIN_WSL_VAULT_PLUGIN"
+	else
+		VAULT_PLUGIN="$MAC_VAULT_PLUGIN"
+	fi
+fi
 
 RUN_TEST=1
 RUN_LINT=0

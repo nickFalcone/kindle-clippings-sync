@@ -100,11 +100,15 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Path to My Clippings.txt')
 			.setDesc(
-				'Found in the "documents" folder when the Kindle is connected over USB.',
+				'Local copy of the Kindle file, or the file on a USB-mounted Kindle. Saved for this computer only — other machines keep their own path.',
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder('/Volumes/Kindle/documents/My Clippings.txt')
+					.setPlaceholder(
+						process.platform === 'win32'
+							? '%USERPROFILE%\\Kindle\\My Clippings.txt'
+							: '/Volumes/Kindle/documents/My Clippings.txt',
+					)
 					.setValue(this.plugin.settings.clippingsPath)
 					.onChange(async (value) => {
 						this.plugin.settings.clippingsPath = value;
@@ -203,11 +207,15 @@ export class KindleClippingsSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Pre-sync command')
 			.setDesc(
-				'Optional shell command run before each sync — e.g. a script that copies My Clippings.txt off an MTP-only Kindle. Leave empty to skip. Sync aborts if the command fails. The command runs with your user privileges; the first sync after it changes asks for confirmation.',
+				'Optional shell command run before each sync — e.g. kindle-sync, which copies My Clippings.txt off an MTP Kindle. Saved for this computer only. Leave empty to skip. Sync aborts if the command fails. The command runs with your user privileges; the first sync after it changes asks for confirmation.',
 			)
 			.addText((text) =>
 				text
-					.setPlaceholder('/opt/homebrew/bin/kindle-sync')
+					.setPlaceholder(
+						process.platform === 'win32'
+							? '"%USERPROFILE%\\Kindle\\kindle-sync.cmd"'
+							: '/opt/homebrew/bin/kindle-sync',
+					)
 					.setValue(this.plugin.settings.preSyncCommand)
 					.onChange(async (value) => {
 						this.plugin.settings.preSyncCommand = value;
